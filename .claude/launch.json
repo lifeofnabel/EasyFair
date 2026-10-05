@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "messe-live",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:live"],
+      "port": 5175
+    },
+    {
       "name": "messe-emulator",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "5174", "--mode", "emulator"],
