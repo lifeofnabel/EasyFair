@@ -1,0 +1,25 @@
+import type { AiAnalysis, AiScore, ContactSuggestion, Product, StructuredSuggestion } from '../../types/models';
+
+export interface CaptureInput {
+  transcript: string;
+  /** Low-quality product photo, only if the user took one. */
+  productPhoto?: Blob;
+}
+
+export type AnalysisResult = Omit<AiAnalysis, 'provider' | 'at'>;
+export type ScoreResult = Omit<AiScore, 'provider' | 'at' | 'total'>;
+
+/**
+ * Every AI feature goes through this interface. UI never talks to a model directly,
+ * so the mock and a real provider are interchangeable.
+ */
+export interface AiProvider {
+  readonly id: string;
+  readonly label: string;
+  structureCapture(input: CaptureInput): Promise<StructuredSuggestion>;
+  readBusinessCard(photo: Blob): Promise<ContactSuggestion>;
+  analyzeProduct(product: Product, productPhoto?: Blob, infoPhoto?: Blob): Promise<AnalysisResult>;
+  scoreProduct(product: Product): Promise<ScoreResult>;
+}
+
+export class AiError extends Error {}

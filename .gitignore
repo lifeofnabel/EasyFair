@@ -1,0 +1,29 @@
+node_modules/
+dist/
+dev-dist/
+coverage/
+*.log
+.DS_Store
+
+# Secrets: never commit
+.env
+.env.*
+!.env.example
+!.env.live
+*service-account*.json
+*adminsdk*.json
+*-firebase-adminsdk-*.json
+keys/
+
+# Firebase local state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+emulator-data/
+
+# IDE
+.idea/
+.vscode/
+.claude/settings.local.json
+*.tsbuildinfo

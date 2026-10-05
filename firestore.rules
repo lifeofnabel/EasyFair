@@ -1,0 +1,115 @@
+rules_version = '2';
+
+// LOCAL EMULATOR COPY. Firestore has ONE rules file per project and the live file lives in the
+// jajehelp repo. In Phase 2 only the "Messe Organizer" block below is merged into
+// jajehelp/firestore.rules. Never deploy this file from here.
+//
+// Everything above the Messe block is an unchanged copy of jajehelp/firestore.rules (2026-10-05).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    function stamped(d) {
+      return d.updatedBy == request.auth.uid && d.updatedAt == request.time;
+    }
+
+    match /ecosystem/{docId} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && docId == 'current'
+        && request.resource.data.keys().hasOnly(['zones', 'nodes', 'links', 'updatedAt', 'updatedBy'])
+        && request.resource.data.zones is list && request.resource.data.zones.size() <= 20
+        && request.resource.data.nodes is list && request.resource.data.nodes.size() <= 200
+        && request.resource.data.links is list && request.resource.data.links.size() <= 200
+        && stamped(request.resource.data);
+      allow delete: if false;
+    }
+
+    match /ecosystem_versions/{versionId} {
+      allow read, delete: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['zones', 'nodes', 'links', 'savedAt', 'savedBy', 'note'])
+        && request.resource.data.savedBy == request.auth.uid
+        && request.resource.data.savedAt == request.time;
+      allow update: if false;
+    }
+
+    match /os/{docId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && stamped(request.resource.data) && (
+        (docId == 'desktop'
+          && request.resource.data.keys().hasOnly(['items', 'updatedAt', 'updatedBy'])
+          && request.resource.data.items is list
+          && request.resource.data.items.size() <= 300)
+        ||
+        (docId == 'status'
+          && request.resource.data.keys().hasOnly(['battery', 'events', 'languages', 'updatedAt', 'updatedBy'])
+          && request.resource.data.battery is map
+          && request.resource.data.battery.level is int
+          && request.resource.data.battery.level >= 0 && request.resource.data.battery.level <= 100
+          && request.resource.data.events is list && request.resource.data.events.size() <= 200
+          && request.resource.data.languages is list && request.resource.data.languages.size() <= 20)
+        ||
+        (docId == 'settings'
+          && request.resource.data.keys().hasOnly(['profile', 'appearance', 'contact', 'updatedAt', 'updatedBy'])
+          && request.resource.data.profile is map
+          && request.resource.data.appearance is map
+          && request.resource.data.contact is map)
+      );
+      allow delete: if false;
+    }
+
+    match /os_versions/{versionId} {
+      allow read, delete: if isAdmin();
+      allow create: if isAdmin()
+        && request.resource.data.keys().hasOnly(['items', 'savedAt', 'savedBy'])
+        && request.resource.data.items is list
+        && request.resource.data.savedBy == request.auth.uid
+        && request.resource.data.savedAt == request.time;
+      allow update: if false;
+    }
+
+    // ===== Messe Organizer (merge this block into jajehelp/firestore.rules) =====
+    // Private data: only the signed-in Jajehelp admin, and only their own records (ownerId).
+    // Built multi-user ready: every document carries ownerId. No hard deletes (archive instead).
+    function messeOwner() {
+      return isAdmin() && request.resource.data.ownerId == request.auth.uid;
+    }
+
+    match /messeProducts/{productId} {
+      allow read: if isAdmin() && resource.data.ownerId == request.auth.uid;
+      allow create: if messeOwner()
+        && request.resource.data.id == productId
+        && request.resource.data.photos is list && request.resource.data.photos.size() <= 60
+        && request.resource.data.history is list && request.resource.data.history.size() <= 40;
+      allow update: if messeOwner()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.id == productId
+        && request.resource.data.photos.size() <= 60
+        && request.resource.data.history.size() <= 40;
+      allow delete: if false;
+    }
+
+    match /messeFairs/{fairId} {
+      allow read: if isAdmin() && resource.data.ownerId == request.auth.uid;
+      allow create: if messeOwner();
+      allow update: if messeOwner() && resource.data.ownerId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Per-user settings incl. the user's own AI key. Readable only by that user.
+    match /messeSettings/{uid} {
+      allow read: if isAdmin() && uid == request.auth.uid;
+      allow create, update: if messeOwner() && uid == request.auth.uid;
+      allow delete: if false;
+    }
+    // ===== end Messe Organizer =====
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
