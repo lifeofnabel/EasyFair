@@ -12,14 +12,14 @@ if (cmd === 'codes') {
   console.log(JSON.stringify(await res.json(), null, 2));
 } else if (cmd === 'grant' && arg) {
   const lookup = await fetch(`${BASE}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
-    method: 'POST', headers, body: JSON.stringify({ phoneNumber: [arg] }),
+    method: 'POST', headers, body: JSON.stringify(arg.includes('@') ? { email: [arg] } : { phoneNumber: [arg] }),
   }).then((r) => r.json());
   const user = lookup.users?.[0];
-  if (!user) throw new Error(`No emulator user with phone ${arg}. Sign in once in the app first.`);
+  if (!user) throw new Error(`No emulator user ${arg}. Sign in once in the app first.`);
   await fetch(`${BASE}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`, {
     method: 'POST', headers, body: JSON.stringify({ localId: user.localId, customAttributes: JSON.stringify({ admin: true }) }),
   });
   console.log(`admin claim set for ${arg} (uid ${user.localId}). Sign in again in the app.`);
 } else {
-  console.log('Usage: npm run emulator:admin -- codes | grant <phone>');
+  console.log('Usage: npm run emulator:admin -- codes | grant <phone|email>');
 }

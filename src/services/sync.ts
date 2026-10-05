@@ -91,6 +91,8 @@ async function pushProducts(uid: string): Promise<void> {
     if (!p) { await db.sync.delete(id); continue; }
     // Demo products are for trying the app only and never reach the real database.
     if (id.startsWith('demo-')) { await db.sync.put({ id, dirty: 0 }); continue; }
+    // Left over from another account on this device: not ours to upload.
+    if (p.ownerId !== uid && p.ownerId !== LOCAL_OWNER) { await db.sync.put({ id, dirty: 0 }); continue; }
     if (p.ownerId === LOCAL_OWNER) {
       p = { ...p, ownerId: uid };
       await db.products.put(p);

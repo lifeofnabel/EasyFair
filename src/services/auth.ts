@@ -8,6 +8,13 @@ import { session } from './session';
  */
 
 const ERRORS: Record<string, string> = {
+  'auth/invalid-credential': 'Email or password is wrong.',
+  'auth/invalid-login-credentials': 'Email or password is wrong.',
+  'auth/wrong-password': 'Email or password is wrong.',
+  'auth/user-not-found': 'Email or password is wrong.',
+  'auth/invalid-email': 'This email address is not valid.',
+  'auth/missing-password': 'Please enter your password.',
+  'auth/user-disabled': 'This account is disabled.',
   'auth/invalid-phone-number': 'This phone number is not valid. Use the format +49 151 ...',
   'auth/too-many-requests': 'Too many attempts. Please wait a few minutes.',
   'auth/invalid-verification-code': 'The code is wrong. Check the SMS and try again.',
@@ -67,6 +74,27 @@ export async function sendCode(phone: string, containerId: string): Promise<Conf
   freshContainer(containerId);
   verifier = new fa.RecaptchaVerifier(auth, containerId, { size: 'invisible' });
   return fa.signInWithPhoneNumber(auth, phone, verifier);
+}
+
+async function requireAdmin(user: import('firebase/auth').User): Promise<void> {
+  const { auth, fa } = await getFirebase();
+  const token = await user.getIdTokenResult(true);
+  if (token.claims.admin !== true) {
+    await fa.signOut(auth);
+    throw new NoAccessError(user.uid);
+  }
+}
+
+export async function signInWithEmail(email: string, password: string): Promise<void> {
+  const { auth, fa } = await getFirebase();
+  const cred = await fa.signInWithEmailAndPassword(auth, email.trim(), password);
+  await requireAdmin(cred.user);
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  const { auth, fa } = await getFirebase();
+  auth.languageCode = 'de';
+  await fa.sendPasswordResetEmail(auth, email.trim());
 }
 
 export async function confirmCode(confirmation: ConfirmationResult, code: string): Promise<void> {
