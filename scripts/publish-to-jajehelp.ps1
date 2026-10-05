@@ -8,7 +8,9 @@ $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '..'
 Push-Location $root
 try {
-  npm run build
+  $ErrorActionPreference = 'Continue'
+  & npm.cmd run build
+  $ErrorActionPreference = 'Stop'
   if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
 } finally { Pop-Location }
 

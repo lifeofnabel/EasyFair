@@ -60,7 +60,7 @@ The Claude API key and the Cloudinary settings are **not** environment variables
 
 ## Firebase
 
-- Uses the existing project **jajehelp37** and its existing login: phone number plus the `admin: true` custom claim, set once with `jajehelp/scripts/set-admin.mjs`. There is no registration. Accounts without the claim are signed out.
+- Uses the existing project **jajehelp37**. Login: email + password (SMS fallback) plus the `admin: true` custom claim, set once with `jajehelp/scripts/set-admin.mjs`. There is no registration. Accounts without the claim are signed out.
 - Collections: `messeProducts`, `messeFairs`, `messeSettings`. Existing Jajehelp data (`ecosystem`, `os`, ...) is never read or written.
 - Every document has an `ownerId`, so the app is ready for multiple users. Products cannot be hard-deleted; they are archived instead.
 - Firestore has **one rules file per project**, and it lives in the jajehelp repo. `firestore.rules` here is an emulator copy. Only the block marked `Messe Organizer` is merged into `jajehelp/firestore.rules`. **Never deploy rules from this repo.**
@@ -97,15 +97,26 @@ How photo upload works:
 - **No hallucinations:** the prompts tell the model to answer *unknown*, which is stored as `null`, instead of guessing. AI output is always labelled, and suggestions are only applied after you accept them (each contact field one by one).
 - The key is used directly from the browser (`dangerouslyAllowBrowser`). This is acceptable for a single-owner tool whose key sits behind owner-only rules. Before you give the app to other users, move the AI calls to a Firebase Function.
 
-## Deployment (Phase 2, only after approval)
+## Deployment (live since 2026-10-05)
 
-1. Build with `npm run build`.
-2. Copy `dist/` to `jajehelp/public/messe/`.
-3. In `jajehelp/firebase.json`, add the rewrite `{ "source": "/messe/**", "destination": "/messe/index.html" }`.
-4. Merge the Messe rules block and the index into the jajehelp repo.
-5. From the jajehelp repo, run `firebase deploy --only firestore:rules,firestore:indexes,hosting`.
-6. In Jajehelp edit mode, add a desktop link in **Private Projects**: `/messe/`, next to Westendkiosk and JUZ Kasse.
-7. On the iPhone, open Safari → `jajehelp.com/messe/` → Share → **Add to Home Screen**. Sign in once at home, before the trip.
+Live at **https://jajehelp.com/messe/**, linked in Jajehelp → **Private Projects**.
+
+Already set up once:
+- `jajehelp/firestore.rules` contains the Messe block, `jajehelp/firestore.indexes.json` the index (deployed).
+- `jajehelp/firebase.json` has the `/messe/**` rewrite and `no-cache` headers for `sw.js` / `index.html`.
+- Login is **email + password** (SMS as fallback). Access needs the admin claim:
+  `npm run set-admin -- --email hello@jajehelp.com` (in the jajehelp repo, with `GOOGLE_APPLICATION_CREDENTIALS` set).
+
+Releasing an update:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\publish-to-jajehelp.ps1   # build + copy to jajehelp/public/messe
+cd ..\jajehelp; firebase deploy --only hosting
+```
+
+`firebase deploy --only hosting` publishes the whole `jajehelp/public` folder, so make sure the rest of it is the version you want live.
+
+On the iPhone: Safari → `jajehelp.com/messe/` → Share → **Add to Home Screen**. Sign in once at home, before the trip.
 
 ## Security notes
 
