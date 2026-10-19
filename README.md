@@ -1,10 +1,10 @@
-# Jajehelp Messe Organizer
+# EasyFair
 
 A personal tool for capturing products quickly at trade fairs (especially in China) and reviewing them later at home.
 
 **At the fair, you collect. At home, you review and decide.**
 
-- **Fair mode (phone):** take a photo, record a voice note, answer a few pre-selected questions, save. A photo plus one sentence is already a valid product.
+- **Fair mode (phone):** take a photo, talk or type a note (tap the 🎤 on the iPhone keyboard), save. The AI writes a **title and description** from your note and photo and pre-fills fields. After saving you land on **Today** with a **Same booth** button.
 - **Review mode (desktop/tablet):** complete the details, check the supplier, run the AI analysis and score, and export a PDF.
 - **Offline-first:** everything is stored on the device right away (IndexedDB). When a connection is available, the app syncs to Firebase and Cloudinary in the background.
 
@@ -18,9 +18,9 @@ Runs under `jajehelp.com/messe/`, the same origin as the Jajehelp site, so it us
 | Offline | Dexie (IndexedDB) + PWA service worker | Local data is the source of truth. The app works without a network connection. |
 | Sync | Firebase Auth + Firestore (existing project `jajehelp37`) | Same login and same database as Jajehelp. Uses its own `messe*` collections. |
 | Photos | Cloudinary unsigned upload preset | No secret in the frontend. The high-quality original is uploaded, and the low-quality version is a URL transformation. |
-| AI | `@anthropic-ai/sdk` (Claude) or built-in Demo AI | Every AI call goes through `src/services/ai/` and is never made from UI components. |
+| AI | **DeepSeek** (works in China), Claude (optional) or the built-in offline Demo AI | Every AI call goes through `src/services/ai/` and is never made from UI components. |
 | QR | `jsqr` | Decodes QR codes locally, even offline. |
-| PDF | Print stylesheet (A4, one product per page) | No PDF library needed. On iPhone: Share → Save to Files. |
+| PDF | One A4 page per product, rendered with `html2canvas` and wrapped into a real PDF file (`src/services/pdf.ts`) | "Create PDF" opens the iPhone share sheet (Save to Files, WhatsApp, AirDrop). |
 
 ## Local development
 
@@ -62,7 +62,7 @@ The Claude API key and the Cloudinary settings are **not** environment variables
 
 - Uses the existing project **jajehelp37**. Login: email + password (SMS fallback) plus the `admin: true` custom claim, set once with `jajehelp/scripts/set-admin.mjs`. There is no registration. Accounts without the claim are signed out.
 - Collections: `messeProducts`, `messeFairs`, `messeSettings`. Existing Jajehelp data (`ecosystem`, `os`, ...) is never read or written.
-- Every document has an `ownerId`, so the app is ready for multiple users. Products cannot be hard-deleted; they are archived instead.
+- Every document has an `ownerId`, so the app is ready for multiple users. The owner can delete their own products (rules enforce `ownerId`).
 - Firestore has **one rules file per project**, and it lives in the jajehelp repo. `firestore.rules` here is an emulator copy. Only the block marked `Messe Organizer` is merged into `jajehelp/firestore.rules`. **Never deploy rules from this repo.**
 - Index: `messeProducts (ownerId ASC, updatedAt ASC)` (see `firestore.indexes.json`). Merge it into `jajehelp/firestore.indexes.json`.
 
@@ -87,15 +87,25 @@ How photo upload works:
 
 ## AI
 
-- **Demo AI (default):** offline rules for German and English voice notes, plus realistic analysis and score templates. It needs no key and no network.
-- **Claude:** go to Settings → AI → Claude API, then enter your key and choose a model. The default is `claude-opus-5-5`, but Sonnet 5.5 and Haiku 4.5 are cheaper options.
-- **Cost rules:**
-  - Only low-quality images are sent.
-  - Booth photos and "other" photos are never sent.
-  - Results are stored and never re-run unless you tap "Run again".
-  - Voice structuring runs once per capture.
-- **No hallucinations:** the prompts tell the model to answer *unknown*, which is stored as `null`, instead of guessing. AI output is always labelled, and suggestions are only applied after you accept them (each contact field one by one).
-- The key is used directly from the browser (`dangerouslyAllowBrowser`). This is acceptable for a single-owner tool whose key sits behind owner-only rules. Before you give the app to other users, move the AI calls to a Firebase Function.
+Pick the provider in **Settings → AI**. Keys are stored in your private Firebase profile (`messeSettings/{uid}`, owner-only rules).
+
+- **DeepSeek (recommended, works in China):** key from platform.deepseek.com. Model `deepseek-flash` sees photos (Base64, low detail), runs with thinking off and JSON mode, and costs very little. Called directly from the browser (CORS is allowed for jajehelp.com).
+- **Claude (optional):** needs a VPN in China. `claude-opus-5-5`, Sonnet 5.5 or Haiku 4.5.
+- **Demo AI (no key):** offline rules for German/English notes. It writes a basic title and description, but cannot translate.
+
+What the AI does:
+
+- **Title + description + pre-filled fields** from the note and the product photo (once per capture; offline it falls back to the rule parser).
+- **Analysis and score** on demand. Results are stored and never re-run unless you tap "Run again". Only low-quality images are sent; booth and "other" photos are never sent.
+- **Business-card reading** with per-field review (Accept / Edit / Ignore).
+- **Arabic view of the current page:** the **ع** button translates everything visible on the page you are on (labels, AI texts, your notes). It switches itself off when you open another page. Translations are cached in IndexedDB, so pages you translated once work offline.
+- **No hallucinations:** the prompts require `null` for unknown values. AI output is always labelled and applied only after you accept it.
+- The key is used from the browser (`dangerouslyAllowBrowser` for Claude, plain `fetch` for DeepSeek). That is acceptable for a single-owner tool whose key sits behind owner-only rules. Before sharing the app with other users, move AI calls to a Firebase Function.
+
+## Data
+
+- **Delete forever** (trash icon on a product): removes it on the phone and in Firebase (also on your other devices via background sync). Photos already in Cloudinary stay there. **Archive** only hides a product.
+- **PDF** exists for one product at a time (Product → PDF), one A4 page with the facts that matter. Long texts are shortened on the page; the full text stays in the app.
 
 ## Deployment (live since 2026-10-05)
 

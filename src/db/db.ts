@@ -6,6 +6,12 @@ export interface KvRow {
   value: unknown;
 }
 
+/** Cached Arabic translation of one English UI/content string, so repeat views work offline. */
+export interface TranslationRow {
+  src: string;
+  ar: string;
+}
+
 /** Offline-first source of truth. Firestore is a mirror that is synced in the background. */
 class MesseDb extends Dexie {
   products!: Table<Product, string>;
@@ -13,6 +19,7 @@ class MesseDb extends Dexie {
   sync!: Table<SyncMeta, string>;
   fairs!: Table<Fair, string>;
   kv!: Table<KvRow, string>;
+  translations!: Table<TranslationRow, string>;
 
   constructor() {
     super('jajehelp-messe');
@@ -23,10 +30,14 @@ class MesseDb extends Dexie {
       fairs: 'id, startDate',
       kv: 'key',
     });
+    this.version(2).stores({ translations: 'src' });
   }
 }
 
 export const db = new MesseDb();
+
+// Records written before a field existed read back with a safe default.
+db.products.hook('reading', (p) => (p && p.description === undefined ? { ...p, description: '' } : p));
 
 export async function kvGet<T>(key: string, fallback: T): Promise<T> {
   const row = await db.kv.get(key);

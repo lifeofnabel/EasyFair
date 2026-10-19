@@ -5,6 +5,19 @@ import type { Product } from '../types/models';
 
 type Demo = Partial<Product> & { key: string; emoji: string; tint: string; daysAgo: number };
 
+const DESCRIPTIONS: Record<string, string> = {
+  "sauce": "Countertop dispenser that portions sauces automatically. Interesting for Babel as a B2B test; OEM possible.",
+  "camera": "Shelf camera that counts stock and reports gaps. Could plug into Lokka; monthly cloud fee.",
+  "packaging": "Compostable take-away box made of sugarcane fibre with a clip lid. Microwave safe, custom logo possible.",
+  "feeder": "App-controlled pet feeder with a built-in camera. Crowded Amazon segment; strong around Christmas.",
+  "robot": "Six-axis desktop robot arm with a Python SDK. Research and prototyping, not a resale item.",
+  "energy": "Plug-in energy monitor with WiFi and app. Useful to track power costs at the kiosk and Babel.",
+  "stem": "Electronics learning kit for ages 10 to 14. Own-brand potential around school start.",
+  "recovery": "Compact massage gun for recovery. Many similar offers on Amazon.",
+  "vending": "Smart vending fridge with weight sensors and card payment. Strong fit for the kiosk; needs fiscal check.",
+  "food": "Self-heating rice meal with 12 months shelf life, halal. Interesting for Ramadan and the Syrian market."
+};
+
 const DEMOS: Demo[] = [
   {
     key: 'sauce', emoji: '🥫', tint: '#FF4FA3', daysAgo: 0, name: 'Automatic sauce dispenser',
@@ -134,7 +147,7 @@ export async function loadDemoData(): Promise<number> {
     const base = blankProduct(currentOwner());
     const created = new Date(Date.now() - daysAgo * 86_400_000).toISOString();
     const p: Product = {
-      ...base, ...fields, id, createdAt: created, updatedAt: created,
+      ...base, ...fields, description: DESCRIPTIONS[d.key] ?? '', id, createdAt: created, updatedAt: created,
       pricing: { ...base.pricing, ...(fields.pricing ?? {}) },
       regulatory: { ...base.regulatory, ...(fields.regulatory ?? {}) },
       history: [{ at: created, action: 'created' }],

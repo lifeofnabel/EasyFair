@@ -1,6 +1,6 @@
 import { CATEGORY_MAP, productType } from '../../constants/categories';
 import type { CategoryId, Product, RegTopicId, RiskLevel, ScoreDimension } from '../../types/models';
-import type { AiProvider, AnalysisResult, CaptureInput, ScoreResult } from './types';
+import { AiError, type AiProvider, type AnalysisResult, type CaptureInput, type ScoreResult } from './types';
 import { parseVoiceNote } from './rules';
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -158,5 +158,9 @@ export const mockProvider: AiProvider = {
     const why = `Demo estimate from the data you captured, not a market analysis. Strongest point: ${best.replace(/([A-Z])/g, ' $1').toLowerCase()}. `
       + `Weakest point: ${worst.replace(/([A-Z])/g, ' $1').toLowerCase()}. Missing prices or supplier data lower the confidence.`;
     return { dims, why };
+  },
+
+  async translate() {
+    throw new AiError('Arabic translation needs an AI key. Add your DeepSeek key in Settings.');
   },
 };

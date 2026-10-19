@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Jajehelp Messe Organizer',
-        short_name: 'Messe',
+        name: 'EasyFair',
+        short_name: 'EasyFair',
         description: 'Capture products at trade fairs. Review and decide at home.',
         start_url: BASE,
         scope: BASE,

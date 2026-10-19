@@ -4,9 +4,9 @@ import { categoryIcon, categoryLabel, marketsLabel, productTitle, projectsLabel 
 import type { Fair, Photo, Product } from '../types/models';
 import { Stars } from './ui';
 
-export function PhotoImg({ photo, fallback, quality = 'low', alt = '' }: { photo?: Photo; fallback?: string; quality?: 'low' | 'high'; alt?: string }) {
+export function PhotoImg({ photo, fallback, quality = 'low', alt = '', eager = false }: { photo?: Photo; fallback?: string; quality?: 'low' | 'high'; alt?: string; eager?: boolean }) {
   const url = usePhotoUrl(photo, quality);
-  return url ? <img src={url} alt={alt} loading="lazy" decoding="async" /> : <span aria-hidden>{fallback ?? '📷'}</span>;
+  return url ? <img src={url} alt={alt} loading={eager ? 'eager' : 'lazy'} decoding="async" /> : <span aria-hidden>{fallback ?? '📷'}</span>;
 }
 
 export const mainPhoto = (p: Product) => p.photos.find((ph) => ph.kind === 'product') ?? p.photos[0];

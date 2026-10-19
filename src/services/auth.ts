@@ -28,7 +28,7 @@ export const authErrorText = (err: unknown) =>
 
 export class NoAccessError extends Error {
   constructor(public uid: string) {
-    super('This account has no access to the Messe Organizer.');
+    super('This account has no access to EasyFair.');
   }
 }
 

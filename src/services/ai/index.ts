@@ -3,17 +3,22 @@ import { updateProduct } from '../../db/repo';
 import type { ContactSuggestion, Photo, Product, StructuredSuggestion } from '../../types/models';
 import { SCORE_DIMENSIONS } from '../../types/models';
 import { nowIso } from '../ids';
-import { claudeReady, loadSettings } from '../settings';
-const loadClaude = () => import('./anthropic').then((m) => m.createAnthropicProvider);
+import { claudeReady, deepseekReady, loadSettings } from '../settings';
 import { mockProvider } from './mock';
 import { parseVoiceNote } from './rules';
 import { AiError, type AiProvider } from './types';
 
 export { AiError };
 
+const loadClaude = () => import('./anthropic').then((m) => m.createAnthropicProvider);
+const loadDeepseek = () => import('./deepseek').then((m) => m.createDeepseekProvider);
+
+/** The real provider if a key is set, else the offline Demo AI. */
 async function provider(): Promise<AiProvider> {
   const s = await loadSettings();
-  return claudeReady(s) ? (await loadClaude())(s.anthropicApiKey.trim(), s.anthropicModel) : mockProvider;
+  if (deepseekReady(s)) return (await loadDeepseek())(s.deepseekApiKey.trim(), s.deepseekModel);
+  if (claudeReady(s)) return (await loadClaude())(s.anthropicApiKey.trim(), s.anthropicModel);
+  return mockProvider;
 }
 
 export async function providerLabel(): Promise<string> {
@@ -39,15 +44,14 @@ export interface StructureResult {
 }
 
 /**
- * Voice note (+ product photo) -> suggested fields. Offline or without key, the instant rule
- * parser answers, so the fair flow never waits on the network.
+ * Voice note (+ product photo) -> title, description and suggested fields. Offline, on error, or
+ * without a key, the instant rule parser answers, so the fair flow never waits on the network.
  */
 export async function structureCapture(transcript: string, productPhoto?: Blob): Promise<StructureResult> {
-  const s = await loadSettings();
   if (!transcript.trim() && !productPhoto) return { suggestion: {}, source: 'rules' };
-  if (claudeReady(s) && navigator.onLine) {
+  const p = await provider();
+  if (p.id !== 'mock' && navigator.onLine) {
     try {
-      const p = (await loadClaude())(s.anthropicApiKey.trim(), s.anthropicModel);
       return { suggestion: await p.structureCapture({ transcript, productPhoto }), source: 'ai' };
     } catch {
       // fall through to rules: the fair flow must never block
@@ -92,4 +96,12 @@ export async function scoreProduct(product: Product, force = false): Promise<Pro
   return updateProduct(product.id, (cur) => ({
     ai: { ...cur.ai, score: { ...result, total: scoreTotal(result.dims), provider: p.label, at: nowIso() } },
   }), 'ai_score');
+}
+
+/** Arabic translation of arbitrary strings (page translator). Needs a real provider and a connection. */
+export async function translateToArabic(strings: string[]): Promise<string[]> {
+  const p = await provider();
+  if (p.id === 'mock') return p.translate(strings);
+  if (!navigator.onLine) throw new AiError('Offline. Translation needs a connection. Pages you translated before still work.');
+  return p.translate(strings);
 }

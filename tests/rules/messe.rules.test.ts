@@ -44,10 +44,13 @@ describe('messeProducts', () => {
     await assertFails(getDocs(collection(otherAdmin(), 'messeProducts')));
   });
 
-  it('no hard delete, no spoofed owner, id must match', async () => {
+  it('owner may delete own product only; no spoofed owner, id must match', async () => {
     const db = owner();
     await assertSucceeds(setDoc(doc(db, 'messeProducts', 'p1'), product('p1', 'owner')));
-    await assertFails(deleteDoc(doc(db, 'messeProducts', 'p1')));
+    await assertFails(deleteDoc(doc(otherAdmin(), 'messeProducts', 'p1')));
+    await assertFails(deleteDoc(doc(noClaim(), 'messeProducts', 'p1')));
+    await assertSucceeds(deleteDoc(doc(db, 'messeProducts', 'p1')));
+    await assertSucceeds(deleteDoc(doc(db, 'messeProducts', 'never-existed')));
     await assertFails(setDoc(doc(db, 'messeProducts', 'p3'), product('p3', 'someone-else')));
     await assertFails(setDoc(doc(db, 'messeProducts', 'p4'), product('wrong-id', 'owner')));
   });

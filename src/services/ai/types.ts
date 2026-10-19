@@ -11,15 +11,17 @@ export type ScoreResult = Omit<AiScore, 'provider' | 'at' | 'total'>;
 
 /**
  * Every AI feature goes through this interface. UI never talks to a model directly,
- * so the mock and a real provider are interchangeable.
+ * so the mock and the real providers are interchangeable.
  */
 export interface AiProvider {
-  readonly id: string;
+  readonly id: 'mock' | 'anthropic' | 'deepseek';
   readonly label: string;
   structureCapture(input: CaptureInput): Promise<StructuredSuggestion>;
   readBusinessCard(photo: Blob): Promise<ContactSuggestion>;
   analyzeProduct(product: Product, productPhoto?: Blob, infoPhoto?: Blob): Promise<AnalysisResult>;
   scoreProduct(product: Product): Promise<ScoreResult>;
+  /** Translates strings to Arabic. Same length and order as the input. */
+  translate(strings: string[]): Promise<string[]>;
 }
 
 export class AiError extends Error {}

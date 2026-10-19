@@ -1,7 +1,7 @@
 /** Central app identity. Rename the product here only. */
 export const APP = {
-  name: 'Messe Organizer',
-  fullName: 'Jajehelp Messe Organizer',
+  name: 'EasyFair',
+  fullName: 'EasyFair',
   brand: 'jajehelp',
 } as const;
 
@@ -40,4 +40,9 @@ export const AI_MODELS = [
   { id: 'claude-opus-5-5', label: 'Claude Opus 5.5 (best)' },
   { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5 (cheaper)' },
   { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5 (cheapest)' },
+] as const;
+
+export const DEEPSEEK_MODELS = [
+  { id: 'deepseek-flash', label: 'DeepSeek Flash (fast, cheap, sees images)' },
+  { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (stronger, text only)' },
 ] as const;

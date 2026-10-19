@@ -140,7 +140,11 @@ export function parseVoiceNote(original: string): StructuredSuggestion {
     if (Object.keys(answers).length) out.categoryAnswers = answers;
   }
 
-  const name = detectName(original);
-  if (name) out.name = name;
+  const words = original.trim().split(/\s+/).filter(Boolean);
+  const fallbackName = words.length ? words.slice(0, 4).join(' ').replace(/[,.;:!?]+$/, '') : undefined;
+  const name = detectName(original) ?? fallbackName;
+  if (name) out.name = name.charAt(0).toUpperCase() + name.slice(1);
+  const spoken = original.replace(/\s+/g, ' ').trim();
+  if (spoken) out.description = spoken.length > 280 ? `${spoken.slice(0, 277)}...` : spoken;
   return out;
 }

@@ -1,24 +1,33 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState, type ChangeEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Icon } from '../components/Icon';
-import { ProductCard } from '../components/ProductCard';
-import { Sheet } from '../components/ui';
+import { PhotoImg, ProductCard, mainPhoto } from '../components/ProductCard';
+import { Sheet, Stars } from '../components/ui';
 import { fairDay, suggestFair } from '../constants/fairs';
 import { kvSet } from '../db/db';
 import { useFairs, useProducts } from '../hooks/useData';
 import { useFairSession } from '../hooks/useFairSession';
-import { isToday } from '../services/format';
+import { categoryIcon, isToday, productTitle } from '../services/format';
+import { useStore } from '../services/store';
+import { syncNow, syncState } from '../services/sync';
+
+const DAY_MS = 86_400_000;
 
 export default function Dashboard() {
   const products = useProducts();
   const fairs = useFairs();
   const session = useFairSession();
+  const sync = useStore(syncState);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [pick, setPick] = useState(false);
   const active = useMemo(() => (products ?? []).filter((p) => !p.archivedAt), [products]);
   const today = active.filter((p) => isToday(p.createdAt));
   const fair = fairs?.find((f) => f.id === session?.fairId) ?? null;
   const suggestion = fairs ? suggestFair(fairs) : null;
   const day = fair ? fairDay(fair) : null;
+  const justSaved = (location.state as { savedId?: string } | null)?.savedId;
+  const last = active[0] && Date.now() - new Date(active[0].createdAt).getTime() < DAY_MS ? active[0] : null;
 
   const stats = [
     { label: 'Captured today', value: today.length, to: '/products' },
@@ -30,6 +39,14 @@ export default function Dashboard() {
   const high = active.filter((p) => p.interest >= 4).slice(0, 4);
   const review = active.filter((p) => p.needsReview).length;
   const setSession = (fairId: string | null, hall: string) => kvSet('fairSession', { fairId, hall });
+
+  const onCamera = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])];
+    e.target.value = '';
+    if (files.length) navigate('/capture', { state: { files } });
+  };
+
+  const waiting = sync.uploadsEnabled ? sync.pendingPhotos : 0;
 
   return (
     <div className="page">
@@ -46,9 +63,35 @@ export default function Dashboard() {
         <Icon name="next" />
       </button>
 
-      <Link to="/capture" className="btn btn--big btn--pink btn--block" style={{ minHeight: 72, fontSize: '1.15rem' }}>
-        <Icon name="plus" />ADD PRODUCT
-      </Link>
+      <div className="add-row">
+        <Link to="/capture" className="btn btn--big btn--pink add-row__main"><Icon name="plus" />ADD PRODUCT</Link>
+        <label className="btn btn--big add-row__cam" aria-label="Take a photo and start">
+          <Icon name="camera" />
+          <input type="file" accept="image/*" capture="environment" onChange={onCamera} />
+        </label>
+      </div>
+
+      {last && (
+        <div className="card last-saved row" aria-live="polite">
+          <Link to={`/product/${last.id}`} className="thumb"><PhotoImg photo={mainPhoto(last)} fallback={categoryIcon(last)} /></Link>
+          <div className="grow">
+            <div className="mono">{justSaved === last.id ? 'Saved ✓' : 'Last saved'}</div>
+            <Link to={`/product/${last.id}`} className="truncate last-saved__title">{productTitle(last)}</Link>
+            <Stars value={last.interest} size="sm" />
+          </div>
+          <div className="stack" style={{ gap: 6 }}>
+            <Link className="btn btn--small btn--pink" to={`/capture?booth=${last.id}`}><Icon name="store" />Same booth</Link>
+            <Link className="btn btn--small" to={`/product/${last.id}`}><Icon name="edit" />Edit</Link>
+          </div>
+        </div>
+      )}
+
+      {waiting > 0 && (
+        <div className="hint-box row row--between row--wrap">
+          <span>📷 {waiting} photo{waiting > 1 ? 's' : ''} waiting to upload{sync.online ? '' : ' (offline: they are safe on this phone)'}.</span>
+          {sync.online && <button type="button" className="btn btn--small" onClick={() => void syncNow()}>Upload now</button>}
+        </div>
+      )}
 
       <div className="stat-grid">
         {stats.map((s) => (
@@ -66,6 +109,7 @@ export default function Dashboard() {
         </Link>
       )}
 
+      {!products && <div className="skeleton" style={{ height: 200 }} />}
       {active.length > 0 && (
         <section className="stack">
           <div className="section-title"><h2>Recent</h2><Link className="small muted" to="/products">All</Link></div>

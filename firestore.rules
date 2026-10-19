@@ -74,7 +74,7 @@ service cloud.firestore {
 
     // ===== Messe Organizer (merge this block into jajehelp/firestore.rules) =====
     // Private data: only the signed-in Jajehelp admin, and only their own records (ownerId).
-    // Built multi-user ready: every document carries ownerId. No hard deletes (archive instead).
+    // Built multi-user ready: every document carries ownerId. Owner can delete own products.
     function messeOwner() {
       return isAdmin() && request.resource.data.ownerId == request.auth.uid;
     }
@@ -90,7 +90,7 @@ service cloud.firestore {
         && request.resource.data.id == productId
         && request.resource.data.photos.size() <= 60
         && request.resource.data.history.size() <= 40;
-      allow delete: if false;
+      allow delete: if isAdmin() && (resource == null || resource.data.ownerId == request.auth.uid);
     }
 
     match /messeFairs/{fairId} {

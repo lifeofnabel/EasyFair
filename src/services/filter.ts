@@ -23,7 +23,7 @@ export const EMPTY_FILTER: ProductFilter = {
 
 function haystack(p: Product): string {
   const s = p.supplier;
-  return [p.name, p.notes, p.voiceTranscript, s.company, s.contactPerson, s.email, s.phone, s.wechat, s.boothNumber,
+  return [p.name, p.description, p.notes, p.voiceTranscript, s.company, s.contactPerson, s.email, s.phone, s.wechat, s.boothNumber,
     p.categoryId ? CATEGORY_MAP[p.categoryId].label : ''].join(' ').toLowerCase();
 }
 

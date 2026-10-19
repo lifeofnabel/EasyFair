@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CategoryPicker, CategoryQuestions } from '../components/CategoryQuestions';
 import {
   BusinessTypeEditor, InvestorEditor, MarketEditor, PricingEditor, ProjectsEditor, SeasonPurposeEditor,
@@ -8,28 +8,29 @@ import { Icon } from '../components/Icon';
 import { PhotoImg } from '../components/ProductCard';
 import { SuggestionReview, applySuggestion, suggestionLines, type SuggestionKey } from '../components/SuggestionReview';
 import { SupplierEditor } from '../components/SupplierEditor';
-import { Stars, errorText, toast } from '../components/ui';
+import { TranslateButton } from '../components/Translate';
+import { Field, Stars, errorText, toast } from '../components/ui';
 import { INFO_TYPES } from '../constants/options';
 import { db } from '../db/db';
-import {
-  attachStagedPhotos, discardPhotoBlobs, newCaptureProduct, saveNewProduct, stagePhoto,
-} from '../db/repo';
-import { useSpeech } from '../hooks/useSpeech';
+import { attachStagedPhotos, discardPhotoBlobs, newCaptureProduct, saveNewProduct, stagePhoto } from '../db/repo';
 import { structureCapture, type StructureResult } from '../services/ai';
 import { decodeQr } from '../services/qr';
-import { loadSettings } from '../services/settings';
+import { tap } from '../services/feedback';
 import type { InfoType, Photo, PhotoKind, Product } from '../types/models';
 
-const STEPS = ['Photos', 'Voice', 'Details'] as const;
+const STEPS = ['Photos', 'Note', 'Details'] as const;
+const AI_WAIT_MS = 9000;
 
-function ShotButton({ kind, label, icon, main, small, onFile }: { kind: PhotoKind; label: string; icon: string; main?: boolean; small?: boolean; onFile: (f: File, kind: PhotoKind) => void }) {
+function ShotButton({ kind, label, icon, main, small, onFile }: {
+  kind: PhotoKind; label: string; icon: string; main?: boolean; small?: boolean; onFile: (f: File, kind: PhotoKind) => void;
+}) {
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = [...(e.target.files ?? [])];
     files.forEach((f) => onFile(f, kind));
     e.target.value = '';
   };
   return (
-    <label className={`shot${main ? " shot--main" : ""}${small ? " shot--small" : ""}`}>
+    <label className={`shot${main ? ' shot--main' : ''}${small ? ' shot--small' : ''}`}>
       <span className="shot__icon" aria-hidden>{icon}</span>
       <span>{label}</span>
       <input type="file" accept="image/*" capture="environment" onChange={onChange} aria-label={label} />
@@ -39,6 +40,7 @@ function ShotButton({ kind, label, icon, main, small, onFile }: { kind: PhotoKin
 
 export default function Capture() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Product | null>(null);
@@ -47,10 +49,18 @@ export default function Capture() {
   const [structuring, setStructuring] = useState(false);
   const [rejected, setRejected] = useState<SuggestionKey[]>([]);
   const [accepted, setAccepted] = useState(false);
+  const [saving, setSaving] = useState(false);
   const saved = useRef(false);
   const staged = useRef<string[]>([]);
   const draftRef = useRef<Product | null>(null);
   draftRef.current = draft;
+  // Refs mirror the structuring state so "Save" right after the AI finished never sees stale values.
+  const structureRef = useRef<StructureResult | null>(null);
+  const rejectedRef = useRef<SuggestionKey[]>([]);
+  const acceptedRef = useRef(false);
+  const lastStructured = useRef('');
+  const descriptionEdited = useRef(false);
+  const initialFiles = useRef<File[]>((location.state as { files?: File[] } | null)?.files ?? []);
 
   useEffect(() => {
     let alive = true;
@@ -59,7 +69,11 @@ export default function Capture() {
       const boothId = params.get('booth');
       const src = boothId ? await db.products.get(boothId) : undefined;
       const p = await newCaptureProduct({ sameBoothAs: src });
-      if (alive) setDraft(p);
+      if (!alive) return;
+      setDraft(p);
+      const files = initialFiles.current;
+      initialFiles.current = [];
+      files.forEach((f) => void onFile(f, 'product'));
     })();
     // Leaving without "Save" never loses a capture: anything with a photo or a note is kept as a product.
     return () => {
@@ -76,11 +90,10 @@ export default function Capture() {
       }
       staged.current = [];
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
   const patch = (changes: Partial<Product>) => setDraft((d) => (d ? { ...d, ...changes } : d));
-
-  const speech = useSpeech((text) => setDraft((d) => (d ? { ...d, voiceTranscript: `${d.voiceTranscript} ${text}`.trim() } : d)));
 
   async function onFile(file: File, kind: PhotoKind) {
     setBusy((b) => b + 1);
@@ -88,6 +101,7 @@ export default function Capture() {
       const photo = await stagePhoto(file, kind, kind === 'info' ? 'business_card' : undefined);
       staged.current.push(photo.id);
       setDraft((d) => (d ? { ...d, photos: [...d.photos, photo] } : d));
+      tap();
       if (kind === 'info') {
         const blob = (await db.photoBlobs.get(photo.id))?.low;
         const qr = blob ? await decodeQr(blob).catch(() => null) : null;
@@ -109,72 +123,104 @@ export default function Capture() {
     void discardPhotoBlobs([id]);
   };
 
-  async function runStructure(text = draft?.voiceTranscript ?? '') {
-    if (!draft || !text.trim()) return;
+  /** Title + description (+ field suggestions) from the note and the product photo. Runs again only when they changed. */
+  async function runStructure(force = false): Promise<void> {
+    const d = draftRef.current;
+    if (!d) return;
+    const productPhoto = d.photos.find((p) => p.kind === 'product');
+    const key = `${d.voiceTranscript.trim()}|${productPhoto?.id ?? ''}`;
+    if (key === '|' || (!force && key === lastStructured.current)) return;
+    lastStructured.current = key;
     setStructuring(true);
     try {
-      const productPhoto = draft.photos.find((p) => p.kind === 'product');
       const blob = productPhoto ? (await db.photoBlobs.get(productPhoto.id))?.low : undefined;
-      const result = await structureCapture(text, blob);
+      const result = await structureCapture(d.voiceTranscript, blob);
+      structureRef.current = result;
+      rejectedRef.current = [];
+      acceptedRef.current = false;
       setStructure(result);
       setRejected([]);
       setAccepted(false);
+      const s = result.suggestion;
+      const cur = draftRef.current;
+      if (cur) {
+        const next = { ...cur };
+        if (s.name && !cur.name.trim()) next.name = s.name;
+        if (s.description && (!cur.description.trim() || !descriptionEdited.current)) next.description = s.description;
+        if (result.source === 'ai') next.ai = { ...cur.ai, structuredAt: new Date().toISOString() };
+        draftRef.current = next;
+        setDraft(next);
+      }
     } finally {
       setStructuring(false);
     }
   }
 
-  // Auto-structure when dictation ends (setting, default on).
-  const wasListening = useRef(false);
-  useEffect(() => {
-    if (wasListening.current && !speech.listening) {
-      void loadSettings().then((s) => { if (s.autoStructureVoice) void runStructure(); });
-    }
-    wasListening.current = speech.listening;
-  }, [speech.listening]);
+  /** Waits for the AI at most a few seconds: the fair flow must never hang on a bad connection. */
+  const settleStructure = () => Promise.race([runStructure(), new Promise<void>((r) => setTimeout(r, AI_WAIT_MS))]);
 
-  function acceptSuggestion() {
-    if (!draft || !structure || accepted) return;
-    const keys = suggestionLines(structure.suggestion).map((l) => l.key).filter((k) => !rejected.includes(k));
-    setDraft(applySuggestion(draft, structure.suggestion, keys));
+  function acceptSuggestion(): Product | null {
+    const d = draftRef.current;
+    const st = structureRef.current;
+    if (!d || !st || acceptedRef.current) return d;
+    const keys = suggestionLines(st.suggestion).map((l) => l.key).filter((k) => !rejectedRef.current.includes(k));
+    const next = applySuggestion(d, st.suggestion, keys);
+    next.name = d.name;
+    next.description = d.description;
+    draftRef.current = next;
+    acceptedRef.current = true;
+    setDraft(next);
     setAccepted(true);
+    return next;
+  }
+
+  function toggleSuggestion(k: SuggestionKey) {
+    const r = rejectedRef.current.includes(k) ? rejectedRef.current.filter((x) => x !== k) : [...rejectedRef.current, k];
+    rejectedRef.current = r;
+    setRejected(r);
   }
 
   async function save() {
-    if (!draft) return;
-    if (speech.listening) speech.stop();
+    if (!draftRef.current || saving) return;
     if (busy > 0) { toast('Photo is still being processed…'); return; }
+    setSaving(true);
     try {
-      let p = draft;
-      if (structure && !accepted) {
-        const keys = suggestionLines(structure.suggestion).map((l) => l.key).filter((k) => !rejected.includes(k));
-        p = applySuggestion(draft, structure.suggestion, keys);
-      }
-      if (structure?.source === 'ai') p = { ...p, ai: { ...p.ai, structuredAt: new Date().toISOString() } };
-      await attachStagedPhotos(p.id, p.photos.map((ph) => ph.id));
-      await saveNewProduct(p);
+      if (step <= 1) await settleStructure();
+      const finalProduct = acceptSuggestion() ?? draftRef.current!;
+      await attachStagedPhotos(finalProduct.id, finalProduct.photos.map((ph) => ph.id));
+      await saveNewProduct(finalProduct);
       saved.current = true;
-      navigate(`/captured/${p.id}`, { replace: true });
+      tap(true);
+      toast('Saved ✓');
+      navigate('/', { replace: true, state: { savedId: finalProduct.id } });
     } catch (err) {
       toast(errorText(err), { error: true });
+      setSaving(false);
     }
   }
 
-  function next() {
-    if (step === 1) acceptSuggestion();
+  async function next() {
+    if (step === 1) {
+      await settleStructure();
+      acceptSuggestion();
+    }
     setStep((s) => Math.min(s + 1, STEPS.length - 1));
     window.scrollTo({ top: 0 });
   }
 
-  if (!draft) return <div className="page"><p className="muted">Loading…</p></div>;
+  if (!draft) return <div className="page"><div className="skeleton" style={{ height: 220 }} /></div>;
   const boothSource = params.get('booth');
+  const hasPhoto = draft.photos.some((p) => p.kind === 'product');
 
   return (
     <div className="page page--narrow capture">
       <div className="topbar">
         <button type="button" className="icon-btn" aria-label="Back" onClick={() => (step ? setStep(step - 1) : navigate(-1))}><Icon name="back" /></button>
         <h1>{STEPS[step]}</h1>
-        <span className="mono">{step + 1}/{STEPS.length}</span>
+        <div className="row">
+          <span className="mono">{step + 1}/{STEPS.length}</span>
+          <TranslateButton />
+        </div>
       </div>
       <div className="steps" aria-hidden>{STEPS.map((s, i) => <span key={s} className={i <= step ? 'on' : ''} />)}</div>
       {boothSource && draft.supplier.company && <p className="small muted">Same booth: {draft.supplier.company}{draft.supplier.boothNumber ? ` · ${draft.supplier.boothNumber}` : ''}</p>}
@@ -218,28 +264,26 @@ export default function Capture() {
 
       {step === 1 && (
         <>
-          <button type="button" className={`mic${speech.listening ? ' on' : ''}`} aria-pressed={speech.listening}
-            aria-label={speech.listening ? 'Stop recording' : 'Start voice note'}
-            onClick={() => (speech.listening ? speech.stop() : speech.start())}>
-            <Icon name={speech.listening ? 'stop' : 'mic'} />
+          <Field label="What do you want to remember?"
+            note="Tap the 🎤 on your keyboard and just talk (German is fine). You get a title and a description automatically.">
+            <textarea className="textarea textarea--note" autoFocus placeholder="e.g. Automatischer Soßenspender, interessant für Babel, ca. 500 Euro, B2B, Deutschland"
+              value={draft.voiceTranscript} onChange={(e) => patch({ voiceTranscript: e.target.value })}
+              onBlur={() => void runStructure()} />
+          </Field>
+          <button type="button" className="btn" disabled={structuring || (!draft.voiceTranscript.trim() && !hasPhoto)} onClick={() => void runStructure(true)}>
+            <Icon name="sparkle" />{structuring ? 'Writing…' : 'Create title & description'}
           </button>
-          <p className="interim">{speech.listening ? (speech.interim || 'Listening… speak German or English') : speech.supported ? 'Tap and speak' : 'Use the 🎤 on the keyboard'}</p>
-          {speech.error && <p className="error-box">{speech.error}</p>}
-          <textarea className="textarea" placeholder={'e.g. "Automatischer Soßenspender, interessant für Babel, ca. 500 Euro, B2B, Deutschland"'}
-            value={draft.voiceTranscript} onChange={(e) => patch({ voiceTranscript: e.target.value })} />
-          <div className="row">
-            <input className="input grow" placeholder="Product name (optional)" value={draft.name} onChange={(e) => patch({ name: e.target.value })} />
-          </div>
-          {!structure && draft.voiceTranscript.trim() && (
-            <button type="button" className="btn" disabled={structuring} onClick={() => void runStructure()}>
-              <Icon name="sparkle" />{structuring ? 'Reading…' : 'Detect fields'}
-            </button>
-          )}
-          {structuring && structure && <p className="small muted">Reading…</p>}
+          <Field label="Title">
+            <input className="input" placeholder={structuring ? 'Writing title…' : 'Title (written for you)'} value={draft.name} onChange={(e) => patch({ name: e.target.value })} />
+          </Field>
+          <Field label="Description">
+            <textarea className="textarea" placeholder={structuring ? 'Writing description…' : 'Short description (written for you)'} value={draft.description}
+              onChange={(e) => { descriptionEdited.current = true; patch({ description: e.target.value }); }} />
+          </Field>
           {structure && (
             <SuggestionReview suggestion={structure.suggestion} source={structure.source} rejected={rejected} accepted={accepted}
-              onToggle={(k) => setRejected((r) => (r.includes(k) ? r.filter((x) => x !== k) : [...r, k]))}
-              onAcceptAll={acceptSuggestion} />
+              onToggle={toggleSuggestion}
+              onAcceptAll={() => acceptSuggestion()} />
           )}
         </>
       )}
@@ -279,10 +323,10 @@ export default function Capture() {
       )}
 
       <div className="sticky-actions">
-        {step < STEPS.length - 1 && <button type="button" className="btn btn--big" onClick={() => void save()}>Save</button>}
+        {step < STEPS.length - 1 && <button type="button" className="btn btn--big" disabled={saving} onClick={() => void save()}>Save</button>}
         {step < STEPS.length - 1
-          ? <button type="button" className="btn btn--big btn--primary" onClick={next}>Next<Icon name="next" /></button>
-          : <button type="button" className="btn btn--big btn--pink" onClick={() => void save()}>Save product</button>}
+          ? <button type="button" className="btn btn--big btn--primary" disabled={saving || structuring} onClick={() => void next()}>{structuring ? 'Writing…' : 'Next'}{!structuring && <Icon name="next" />}</button>
+          : <button type="button" className="btn btn--big btn--pink" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save product'}</button>}
       </div>
     </div>
   );

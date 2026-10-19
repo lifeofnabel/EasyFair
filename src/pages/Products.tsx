@@ -21,7 +21,6 @@ export default function Products() {
     <div className="page">
       <div className="topbar">
         <h1>Products</h1>
-        <Link className="btn btn--small" to={`/export?${filterToParams(filter).toString()}`}><Icon name="pdf" />PDF</Link>
       </div>
       <div className="row">
         <input className="input grow" type="search" placeholder="Search product, company, contact, notes" value={filter.q}

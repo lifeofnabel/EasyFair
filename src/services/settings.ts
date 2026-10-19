@@ -4,6 +4,8 @@ import { nowIso } from './ids';
 
 export const DEFAULT_SETTINGS: AppSettings = {
   aiProvider: 'mock',
+  deepseekApiKey: '',
+  deepseekModel: 'deepseek-flash',
   anthropicApiKey: '',
   anthropicModel: 'claude-opus-5-5',
   cloudinaryCloudName: 'dwzzcufpf',
@@ -24,4 +26,6 @@ export async function saveSettings(s: AppSettings): Promise<void> {
 }
 
 export const cloudinaryReady = (s: AppSettings) => Boolean(s.cloudinaryCloudName && s.cloudinaryUploadPreset);
+export const deepseekReady = (s: AppSettings) => s.aiProvider === 'deepseek' && s.deepseekApiKey.trim().length > 10;
 export const claudeReady = (s: AppSettings) => s.aiProvider === 'anthropic' && s.anthropicApiKey.trim().length > 20;
+export const aiReady = (s: AppSettings) => deepseekReady(s) || claudeReady(s);

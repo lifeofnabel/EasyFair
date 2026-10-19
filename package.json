@@ -1,9 +1,9 @@
 {
-  "name": "jajehelp-messe-organizer",
+  "name": "easyfair",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Jajehelp Messe Organizer: capture products at trade fairs, review and decide at home.",
+  "description": "EasyFair: capture products at trade fairs, review and decide at home.",
   "scripts": {
     "dev": "vite",
     "dev:live": "vite --port 5175 --mode live",
@@ -25,6 +25,7 @@
     "dexie": "^4.4.6",
     "dexie-react-hooks": "^4.4.0",
     "firebase": "^12.19.0",
+    "html2canvas": "^1.4.1",
     "jsqr": "^1.4.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

@@ -129,6 +129,8 @@ export interface Product {
 
   name: string;
   notes: string;
+  /** Short AI-written (or hand-written) description of the product. */
+  description: string;
   voiceTranscript: string;
 
   categoryId: CategoryId | null;
@@ -181,7 +183,9 @@ export interface FairSession {
 }
 
 export interface AppSettings {
-  aiProvider: 'mock' | 'anthropic';
+  aiProvider: 'mock' | 'anthropic' | 'deepseek';
+  deepseekApiKey: string;
+  deepseekModel: string;
   anthropicApiKey: string;
   anthropicModel: string;
   cloudinaryCloudName: string;
@@ -195,6 +199,7 @@ export interface AppSettings {
 /** Suggestion produced from voice/photo; never written without user confirmation. */
 export interface StructuredSuggestion {
   name?: string;
+  description?: string;
   categoryId?: CategoryId;
   categoryAnswers?: Record<string, AnswerValue>;
   targetMarkets?: MarketId[];

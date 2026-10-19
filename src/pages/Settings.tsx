@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Field, errorText, toast } from '../components/ui';
-import { AI_MODELS, APP, FIREBASE_MODE } from '../config/app';
+import { AI_MODELS, APP, DEEPSEEK_MODELS, FIREBASE_MODE } from '../config/app';
 import { db } from '../db/db';
 import { loadDemoData, removeDemoData } from '../demo/demoData';
 import { useFairs } from '../hooks/useData';
 import { signOut } from '../services/auth';
 import { newId } from '../services/ids';
 import { session } from '../services/session';
-import { DEFAULT_SETTINGS, claudeReady, loadSettings, saveSettings } from '../services/settings';
+import { DEFAULT_SETTINGS, claudeReady, deepseekReady, loadSettings, saveSettings } from '../services/settings';
 import { useStore } from '../services/store';
 import { markFairDirty, syncNow } from '../services/sync';
 import type { AppSettings, Fair } from '../types/models';
@@ -84,24 +84,44 @@ export default function Settings() {
         <h3>AI</h3>
         <div className="chips">
           <button type="button" className="chip" aria-pressed={s.aiProvider === 'mock'} onClick={() => update({ aiProvider: 'mock' })}>Demo AI (offline)</button>
-          <button type="button" className="chip" aria-pressed={s.aiProvider === 'anthropic'} onClick={() => update({ aiProvider: 'anthropic' })}>Claude API</button>
+          <button type="button" className="chip" aria-pressed={s.aiProvider === 'deepseek'} onClick={() => update({ aiProvider: 'deepseek' })}>DeepSeek</button>
+          <button type="button" className="chip" aria-pressed={s.aiProvider === 'anthropic'} onClick={() => update({ aiProvider: 'anthropic' })}>Claude</button>
         </div>
-        <Field label="Claude API key" note="Stored in your private Firebase profile (owner-only rules). Never committed, never shown elsewhere.">
+
+        <Field label="DeepSeek API key" note="Works in China. Stored in your private Firebase profile (owner-only rules). Get it at platform.deepseek.com.">
           <div className="row">
-            <input className="input grow" type={showKey ? 'text' : 'password'} autoComplete="off" spellCheck={false} placeholder="sk-ant-…"
-              value={s.anthropicApiKey}
-              onChange={(e) => update({ anthropicApiKey: e.target.value, ...(e.target.value.trim() ? { aiProvider: 'anthropic' as const } : {}) })} />
+            <input className="input grow" type={showKey ? 'text' : 'password'} autoComplete="off" spellCheck={false} placeholder="sk-…"
+              value={s.deepseekApiKey}
+              onChange={(e) => update({ deepseekApiKey: e.target.value, ...(e.target.value.trim() ? { aiProvider: 'deepseek' as const } : {}) })} />
             <button type="button" className="btn btn--small" onClick={() => setShowKey(!showKey)}>{showKey ? 'Hide' : 'Show'}</button>
           </div>
         </Field>
-        <Field label="Model" note="All runs use low-quality images and low effort to keep cost small. Results are stored and never re-run automatically.">
-          <select className="select" value={s.anthropicModel} onChange={(e) => update({ anthropicModel: e.target.value })}>
-            {AI_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+        <Field label="DeepSeek model" note="Flash sees photos and costs very little. Results are stored and never re-run automatically.">
+          <select className="select" value={s.deepseekModel} onChange={(e) => update({ deepseekModel: e.target.value })}>
+            {DEEPSEEK_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </Field>
-        <p className="small muted">{claudeReady(s) ? 'Claude is active.' : 'Without a key (or with "Demo AI" selected) the offline Demo AI answers.'}</p>
-        <label className="row small"><input type="checkbox" checked={s.autoStructureVoice} onChange={(e) => update({ autoStructureVoice: e.target.checked })} />
-          Detect fields automatically after a voice note</label>
+
+        <details>
+          <summary className="small muted" style={{ cursor: 'pointer' }}>Claude (optional, needs VPN in China)</summary>
+          <div className="stack" style={{ marginTop: 10 }}>
+            <Field label="Claude API key">
+              <input className="input" type={showKey ? 'text' : 'password'} autoComplete="off" spellCheck={false} placeholder="sk-ant-…"
+                value={s.anthropicApiKey}
+                onChange={(e) => update({ anthropicApiKey: e.target.value, ...(e.target.value.trim() ? { aiProvider: 'anthropic' as const } : {}) })} />
+            </Field>
+            <Field label="Claude model">
+              <select className="select" value={s.anthropicModel} onChange={(e) => update({ anthropicModel: e.target.value })}>
+                {AI_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            </Field>
+          </div>
+        </details>
+
+        <p className="small muted">
+          {deepseekReady(s) ? 'DeepSeek is active.' : claudeReady(s) ? 'Claude is active.'
+            : 'No key active: the offline Demo AI answers (basic titles, no translation).'}
+        </p>
       </div>
 
       <div className="card stack">
@@ -144,7 +164,7 @@ export default function Settings() {
           <button type="button" className="btn" onClick={() => void exportBackup()}>Download backup (JSON)</button>
         </div>
       </div>
-      <p className="small muted" style={{ textAlign: 'center' }}>{APP.fullName} · v0.1 · local build</p>
+      <p className="small muted" style={{ textAlign: 'center' }}>{APP.fullName} · v0.2</p>
     </div>
   );
 }

@@ -15,7 +15,7 @@ export function blankProduct(ownerId: string): Product {
   const now = nowIso();
   return {
     id: newId(), ownerId, createdAt: now, updatedAt: now, archivedAt: null,
-    name: '', notes: '', voiceTranscript: '',
+    name: '', notes: '', description: '', voiceTranscript: '',
     categoryId: null, categoryAnswers: {},
     targetMarkets: [], otherCountries: [], businessType: null, seasons: [], purposes: [], projects: [], investors: [],
     interest: 0, needsReview: true,
@@ -134,4 +134,22 @@ export async function newCaptureProduct(opts: { sameBoothAs?: Product } = {}): P
     p.categoryId = src.categoryId;
   }
   return p;
+}
+
+/**
+ * Permanent delete: removes the product and its local photos. If it was ever synced, the id goes on a
+ * tombstone list so the background sync deletes it in Firebase too. Cloudinary files stay (the app
+ * has no secret to delete them with).
+ */
+export async function deleteProductForever(id: string): Promise<void> {
+  await db.transaction('rw', db.products, db.photoBlobs, db.sync, db.kv, async () => {
+    const meta = await db.sync.get(id);
+    if (meta?.lastSyncedAt) {
+      const pending = ((await db.kv.get('pendingDeletes'))?.value as string[] | undefined) ?? [];
+      if (!pending.includes(id)) await db.kv.put({ key: 'pendingDeletes', value: [...pending, id] });
+    }
+    await db.products.delete(id);
+    await db.photoBlobs.where('productId').equals(id).delete();
+    await db.sync.delete(id);
+  });
 }

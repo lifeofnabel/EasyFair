@@ -28,7 +28,7 @@ describe('voice note parser (offline rules)', () => {
     expect(s.oem).toBe(true);
     expect(s.moq).toBe(100);
     expect(s.price?.amount).toBe(500);
-    expect(s.name).toBeUndefined();
+    expect(s.name).toBe('Interessant für Deutschland und');
   });
 
   it('never invents a price', () => {

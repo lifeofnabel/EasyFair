@@ -104,8 +104,41 @@ async function pushProducts(uid: string): Promise<void> {
   }
 }
 
+async function pushDeletes(): Promise<void> {
+  const pending = await kvGet<string[]>('pendingDeletes', []);
+  if (!pending.length) return;
+  const { db: fdb, fs } = await getFirebase();
+  const left: string[] = [];
+  for (const id of pending) {
+    try { await fs.deleteDoc(fs.doc(fdb, COLLECTIONS.products, id)); } catch { left.push(id); }
+  }
+  await kvSet('pendingDeletes', left);
+}
+
+const RECONCILE_EVERY_MS = 10 * 60_000;
+let lastReconcile = 0;
+
+/** Products deleted on another device: remove local copies that were synced before but no longer exist remotely. */
+async function reconcileDeletes(uid: string): Promise<void> {
+  if (Date.now() - lastReconcile < RECONCILE_EVERY_MS) return;
+  const { db: fdb, fs } = await getFirebase();
+  const snap = await fs.getDocs(fs.query(fs.collection(fdb, COLLECTIONS.products), fs.where('ownerId', '==', uid)));
+  lastReconcile = Date.now();
+  const remote = new Set(snap.docs.map((d) => d.id));
+  const metas = await db.sync.toArray();
+  const gone = metas.filter((m) => m.lastSyncedAt && !m.dirty && !m.id.startsWith('demo-') && !remote.has(m.id)).map((m) => m.id);
+  // Never wipe everything because of one odd answer.
+  if (!remote.size || !gone.length || gone.length > Math.max(3, metas.length / 2)) return;
+  await db.transaction('rw', db.products, db.photoBlobs, db.sync, async () => {
+    await db.products.bulkDelete(gone);
+    await db.photoBlobs.where('productId').anyOf(gone).delete();
+    await db.sync.bulkDelete(gone);
+  });
+}
+
 async function pullProducts(uid: string): Promise<void> {
   const { db: fdb, fs } = await getFirebase();
+  const deleting = new Set(await kvGet<string[]>('pendingDeletes', []));
   const since = await kvGet<string>('lastPullAt', '');
   const base = fs.collection(fdb, COLLECTIONS.products);
   const q = since
@@ -116,6 +149,7 @@ async function pullProducts(uid: string): Promise<void> {
   for (const doc of snap.docs) {
     const remote = doc.data() as Product;
     if (remote.updatedAt > newest) newest = remote.updatedAt;
+    if (deleting.has(remote.id)) continue;
     const [local, meta] = await Promise.all([db.products.get(remote.id), db.sync.get(remote.id)]);
     if (meta?.dirty) continue; // local change wins and will be pushed
     if (!local || remote.updatedAt > local.updatedAt) {
@@ -188,7 +222,9 @@ export async function syncNow(): Promise<void> {
     await syncSettings(uid);
     await uploadPhotos(await loadSettings());
     await pushProducts(uid);
+    await pushDeletes();
     await pullProducts(uid);
+    await reconcileDeletes(uid);
     await syncFairs(uid);
     await refreshCounts();
     const { pendingProducts } = syncState.get();

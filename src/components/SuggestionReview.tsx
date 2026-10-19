@@ -8,7 +8,6 @@ export type SuggestionKey = keyof StructuredSuggestion;
 export function suggestionLines(s: StructuredSuggestion): { key: SuggestionKey; label: string }[] {
   const lines: { key: SuggestionKey; label: string }[] = [];
   const list = <T extends string>(opts: { id: T; label: string }[], ids?: T[]) => (ids ?? []).map((i) => labelOf(opts, i)).join(', ');
-  if (s.name) lines.push({ key: 'name', label: `Name: ${s.name}` });
   if (s.categoryId) lines.push({ key: 'categoryId', label: `Category: ${CATEGORY_MAP[s.categoryId].label}` });
   if (s.targetMarkets?.length) lines.push({ key: 'targetMarkets', label: `Target market: ${list(MARKETS, s.targetMarkets)}${s.otherCountries?.length ? ` (${s.otherCountries.join(', ')})` : ''}` });
   if (s.businessType) lines.push({ key: 'businessType', label: labelOf(BUSINESS_TYPES, s.businessType) });
@@ -62,12 +61,12 @@ export function SuggestionReview({ suggestion, source, rejected, onToggle, onAcc
 }) {
   const lines = suggestionLines(suggestion);
   if (!lines.length) {
-    return <p className="small muted">Nothing detected yet. That's fine: the note is saved as it is.</p>;
+    return <p className="small muted">No extra fields detected. That's fine: title and description are enough.</p>;
   }
   return (
     <div className="card card--pink stack">
       <div className="row row--between">
-        <h3>Detected information</h3>
+        <h3>Pre-filled for you</h3>
         <span className="ai-tag">{source === 'ai' ? 'AI' : 'Auto (offline)'}</span>
       </div>
       <div className="chips">

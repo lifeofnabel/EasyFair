@@ -8,15 +8,15 @@ import {
 import { Icon } from '../components/Icon';
 import { PhotoImg, mainPhoto } from '../components/ProductCard';
 import { SupplierEditor } from '../components/SupplierEditor';
-import { Stars, errorText, toast } from '../components/ui';
+import { Sheet, Stars, errorText, toast } from '../components/ui';
 import { INFO_TYPES, PHOTO_KINDS, REG_TOPICS, RISK_LEVELS, SCORE_LABELS, labelOf } from '../constants/options';
 import { db } from '../db/db';
-import { addPhoto, archiveProduct, removePhoto, restoreProduct, updateProduct } from '../db/repo';
+import { addPhoto, archiveProduct, deleteProductForever, removePhoto, restoreProduct, updateProduct } from '../db/repo';
 import { useFairs, useProduct } from '../hooks/useData';
 import { AiError, analyzeProduct, pickAiPhotos, scoreProduct } from '../services/ai';
 import { categoryIcon, productTitle, shortDate } from '../services/format';
 import { SCORE_DIMENSIONS, type Photo, type PhotoKind, type Product } from '../types/models';
-import { SupplierInsight } from './Captured';
+import { SupplierInsight } from '../components/SupplierInsight';
 
 const HISTORY_LABEL: Record<string, string> = {
   created: 'Created', edited: 'Edited', ai_structured: 'AI structured', ai_analysis: 'AI analysis generated',
@@ -51,7 +51,8 @@ function useAutosave(product: Product | null | undefined) {
     clearTimeout(timer.current);
     timer.current = setTimeout(flush, 600);
   };
-  return { draft, patch, flush };
+  const discard = () => { clearTimeout(timer.current); pending.current = {}; };
+  return { draft, patch, flush, discard };
 }
 
 function Gallery({ p }: { p: Product }) {
@@ -136,12 +137,21 @@ function AiAnalysisCard({ p }: { p: Product }) {
       {!a && <p className="small muted">Uses {[pp && 'the product photo', info && 'one info photo', 'your data'].filter(Boolean).join(', ')} in low quality. Booth photos are never sent.</p>}
       {a && (
         <>
-          <p>{a.summary}</p>
-          <div className="grid-2">
-            <div><span className="mono">Advantages</span><ul className="small">{a.advantages.map((x) => <li key={x}>{x}</li>)}</ul></div>
-            <div><span className="mono">Disadvantages</span><ul className="small">{a.disadvantages.map((x) => <li key={x}>{x}</li>)}</ul></div>
+          <p className="ai-summary">{a.summary}</p>
+          <div className="pro-con">
+            <div className="pro-con__col pro-con__col--pro">
+              <span className="pro-con__head">👍 Advantages</span>
+              <ul>{a.advantages.map((x) => <li key={x}>{x}</li>)}</ul>
+            </div>
+            <div className="pro-con__col pro-con__col--con">
+              <span className="pro-con__head">⚠️ Disadvantages</span>
+              <ul>{a.disadvantages.map((x) => <li key={x}>{x}</li>)}</ul>
+            </div>
           </div>
-          <div><span className="mono">Reflection questions</span><ul className="small">{a.questions.map((x) => <li key={x}>{x}</li>)}</ul></div>
+          <div className="questions">
+            <span className="mono">Questions to ask yourself</span>
+            <ol>{a.questions.map((x) => <li key={x}>{x}</li>)}</ol>
+          </div>
           {hintDiffers && a.regulatoryHint && (
             <div className="hint-box row row--between row--wrap">
               <span>AI regulatory hint: {labelOf(RISK_LEVELS, a.regulatoryHint.risk)} · {a.regulatoryHint.topics.map((t) => labelOf(REG_TOPICS, t)).join(', ') || 'no topics'}</span>
@@ -174,16 +184,20 @@ function ScoreCard({ p }: { p: Product }) {
       <div className="row row--between"><h3>Product score</h3>{s && <span className="ai-tag">AI estimate</span>}</div>
       {s ? (
         <>
-          <div className="score"><span className="score__big">{s.total}</span><span className="muted">/100</span></div>
-          <div className="stack" style={{ gap: 8 }}>
+          <div className="score-head">
+            <div className={`ring ring--${s.total >= 70 ? 'good' : s.total >= 45 ? 'mid' : 'low'}`} style={{ ['--pct' as string]: s.total }} role="img" aria-label={`Score ${s.total} of 100`}>
+              <span className="ring__num">{s.total}</span><span className="ring__of">/100</span>
+            </div>
+            <p className="small score-head__why"><strong>Why?</strong> {s.why}</p>
+          </div>
+          <div className="stack" style={{ gap: 9 }}>
             {SCORE_DIMENSIONS.map((d) => (
               <div key={d} className="stack" style={{ gap: 3 }}>
                 <div className="row row--between small"><span>{SCORE_LABELS[d]}</span><span className="muted">{s.dims[d]}/10</span></div>
-                <div className="bar"><span style={{ width: `${s.dims[d] * 10}%` }} /></div>
+                <div className={`bar bar--${s.dims[d] >= 7 ? 'good' : s.dims[d] >= 4 ? 'mid' : 'low'}`}><span style={{ width: `${s.dims[d] * 10}%` }} /></div>
               </div>
             ))}
           </div>
-          <p className="small"><strong>Why?</strong> {s.why}</p>
           <p className="small muted">10 = favourable for you (e.g. little competition). AI estimate, not an objective market analysis.</p>
         </>
       ) : <p className="small muted">Rates demand, competition, margin, capital, scalability, regulation, import, private label and personal fit.</p>}
@@ -219,7 +233,9 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const product = useProduct(id);
   const fairs = useFairs();
-  const { draft: p, patch, flush } = useAutosave(product);
+  const { draft: p, patch, flush, discard } = useAutosave(product);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (product === null) return <div className="page"><div className="empty">Product not found.<Link className="btn" to="/products">All products</Link></div></div>;
   if (!p) return null;
@@ -231,10 +247,11 @@ export default function ProductDetail() {
       <div className="topbar no-print">
         <button type="button" className="icon-btn" aria-label="Back" onClick={() => { flush(); navigate(-1); }}><Icon name="back" /></button>
         <div className="row">
-          <Link className="btn btn--small" to={`/export?ids=${p.id}`} onClick={flush}><Icon name="pdf" />PDF</Link>
+          <Link className="btn btn--small" to={`/pdf/${p.id}`} onClick={flush}><Icon name="pdf" />PDF</Link>
           {archived
             ? <button type="button" className="btn btn--small" onClick={() => void restoreProduct(p.id).then(() => toast('Restored.'))}>Restore</button>
             : <button type="button" className="btn btn--small btn--quiet" onClick={() => { flush(); void archiveProduct(p.id).then(() => { toast('Archived. Find it under Filters → Show archived.'); navigate('/products'); }); }}><Icon name="archive" />Archive</button>}
+          <button type="button" className="icon-btn icon-btn--danger" aria-label="Delete permanently" onClick={() => setConfirmDelete(true)}><Icon name="trash" /></button>
         </div>
       </div>
       {params.has('review') && <ReviewBar id={p.id} />}
@@ -266,6 +283,7 @@ export default function ProductDetail() {
           <div className="stack">
             <input className="input" style={{ fontSize: '1.3rem', fontWeight: 600 }} placeholder="Product name" value={p.name}
               onChange={(e) => patch({ name: e.target.value })} />
+            <textarea className="textarea" placeholder="Description" value={p.description} onChange={(e) => patch({ description: e.target.value })} />
             <textarea className="textarea" placeholder="My note" value={p.notes} onChange={(e) => patch({ notes: e.target.value })} />
             {p.voiceTranscript && (
               <details className="card">
@@ -308,6 +326,25 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {confirmDelete && (
+        <Sheet title="Delete this product?" onClose={() => !deleting && setConfirmDelete(false)}>
+          <div className="stack">
+            <p><strong>{productTitle(p)}</strong> will be deleted from this phone and from your database. This cannot be undone.</p>
+            <p className="small muted">Photos already uploaded stay in Cloudinary (the app cannot delete them). Want to hide it instead? Use Archive.</p>
+            <button type="button" className="btn btn--danger-solid btn--big" disabled={deleting} onClick={async () => {
+              setDeleting(true);
+              discard();
+              try {
+                await deleteProductForever(p.id);
+                toast('Product deleted.');
+                navigate('/products', { replace: true });
+              } catch (err) { toast(errorText(err), { error: true }); setDeleting(false); }
+            }}>{deleting ? 'Deleting…' : 'Delete permanently'}</button>
+            <button type="button" className="btn btn--big" disabled={deleting} onClick={() => setConfirmDelete(false)}>Keep it</button>
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
