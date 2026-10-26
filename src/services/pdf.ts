@@ -41,9 +41,9 @@ export async function elementToPdf(el: HTMLElement): Promise<Blob> {
   return jpegToPdf(new Uint8Array(await jpeg.arrayBuffer()), canvas.width, canvas.height);
 }
 
-/** iPhone: opens the share sheet (Save to Files, AirDrop, WhatsApp). Elsewhere: downloads. */
+/** Any file (PDF, CSV, JSON): iPhone opens the share sheet (Save to Files, AirDrop, WhatsApp), elsewhere it downloads. */
 export async function shareOrDownload(blob: Blob, filename: string, title: string): Promise<'shared' | 'downloaded'> {
-  const file = new File([blob], filename, { type: 'application/pdf' });
+  const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title });

@@ -1,34 +1,56 @@
-import { Suspense, lazy } from 'react';
-import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useState } from 'react';
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Icon, Logo } from './components/Icon';
 import { SyncBadge } from './components/SyncBadge';
 import { TranslateButton, TranslateProvider } from './components/Translate';
-import { Toasts } from './components/ui';
+import { Sheet, Toasts } from './components/ui';
 import { APP } from './config/app';
 import Capture from './pages/Capture';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
+import Phrases from './pages/Phrases';
 import ProductDetail from './pages/ProductDetail';
 import Products from './pages/Products';
+import Stand from './pages/Stand';
 import { session } from './services/session';
 import { useStore } from './services/store';
 
-// Home-only pages load on demand; the fair flow above is bundled for instant offline start.
+// Fair-floor pages above are bundled for an instant offline start; the rest loads on demand (and is precached).
 const Review = lazy(() => import('./pages/Review'));
 const Projects = lazy(() => import('./pages/Projects'));
 const Pdf = lazy(() => import('./pages/Pdf'));
 const Settings = lazy(() => import('./pages/Settings'));
+const Plan = lazy(() => import('./pages/Plan'));
+const Pitch = lazy(() => import('./pages/Pitch'));
+const Deal = lazy(() => import('./pages/Deal'));
+const FollowUp = lazy(() => import('./pages/FollowUp'));
+const More = lazy(() => import('./pages/More'));
+
+function AddSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <Sheet title="Add" onClose={onClose}>
+      <div className="stack">
+        <Link to="/stand?new=1" className="btn btn--big btn--pink" onClick={onClose}><Icon name="store" />Stand talk · 8 questions</Link>
+        <Link to="/capture?new=1" className="btn btn--big" onClick={onClose}><Icon name="camera" />Quick capture · photo + note</Link>
+      </div>
+    </Sheet>
+  );
+}
 
 function Nav() {
+  const [add, setAdd] = useState(false);
   const cls = ({ isActive }: { isActive: boolean }) => `nav__item${isActive ? ' active' : ''}`;
   return (
-    <nav className="nav no-print" aria-label="Main">
-      <NavLink to="/" end className={cls}><Icon name="home" />Today</NavLink>
-      <NavLink to="/products" className={cls}><Icon name="list" />Products</NavLink>
-      <NavLink to="/capture" className="nav__add" aria-label="Add product"><Icon name="plus" /></NavLink>
-      <NavLink to="/review" className={cls}><Icon name="review" />Review</NavLink>
-      <NavLink to="/projects" className={cls}><Icon name="folder" />Projects</NavLink>
-    </nav>
+    <>
+      <nav className="nav no-print" aria-label="Main">
+        <NavLink to="/" end className={cls}><Icon name="home" />Today</NavLink>
+        <NavLink to="/products" className={cls}><Icon name="list" />Leads</NavLink>
+        <button type="button" className="nav__add" aria-label="Add lead" onClick={() => setAdd(true)}><Icon name="plus" /></button>
+        <NavLink to="/phrases" className={cls}><span className="nav__zh" lang="zh-CN" data-no-translate>中</span>Phrases</NavLink>
+        <NavLink to="/more" className={cls}><Icon name="folder" />Toolkit</NavLink>
+      </nav>
+      {add && <AddSheet onClose={() => setAdd(false)} />}
+    </>
   );
 }
 
@@ -47,19 +69,30 @@ function Header() {
   );
 }
 
+/** Pages with their own header and a sticky action bar: no global header or bottom navigation. */
+const FOCUS_PAGES = ['/pdf', '/capture', '/stand'];
+
 function Shell() {
   const { pathname } = useLocation();
-  const bare = pathname.startsWith('/pdf') || pathname.startsWith('/capture');
+  const bare = FOCUS_PAGES.some((p) => pathname.startsWith(p));
+  const ownHeader = ['/phrases', '/pitch', '/deal', '/plan', '/followup'].some((p) => pathname.startsWith(p));
   return (
     <div className={`app${bare ? ' app--bare' : ''}`}>
-      {!bare && <Header />}
+      {!bare && !ownHeader && <Header />}
       <Suspense fallback={<div className="page"><div className="skeleton" style={{ height: 160 }} /></div>}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/stand" element={<Stand />} />
           <Route path="/capture" element={<Capture />} />
           <Route path="/captured/:id" element={<Navigate to="/" replace />} />
           <Route path="/products" element={<Products />} />
           <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/phrases" element={<Phrases />} />
+          <Route path="/pitch" element={<Pitch />} />
+          <Route path="/deal" element={<Deal />} />
+          <Route path="/plan" element={<Plan />} />
+          <Route path="/followup" element={<FollowUp />} />
+          <Route path="/more" element={<More />} />
           <Route path="/review" element={<Review />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/pdf/:id" element={<Pdf />} />

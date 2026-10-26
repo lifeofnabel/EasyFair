@@ -37,7 +37,17 @@ class MesseDb extends Dexie {
 export const db = new MesseDb();
 
 // Records written before a field existed read back with a safe default.
-db.products.hook('reading', (p) => (p && p.description === undefined ? { ...p, description: '' } : p));
+db.products.hook('reading', (p) => {
+  if (!p || (p.description !== undefined && p.stand !== undefined)) return p;
+  return {
+    ...p,
+    description: p.description ?? '',
+    priority: p.priority ?? null,
+    stand: p.stand ?? {},
+    redFlags: p.redFlags ?? [],
+    followUpSentAt: p.followUpSentAt ?? null,
+  };
+});
 
 export async function kvGet<T>(key: string, fallback: T): Promise<T> {
   const row = await db.kv.get(key);

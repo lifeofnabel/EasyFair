@@ -8,7 +8,11 @@ import {
 import { Icon } from '../components/Icon';
 import { PhotoImg, mainPhoto } from '../components/ProductCard';
 import { SupplierEditor } from '../components/SupplierEditor';
-import { Sheet, Stars, errorText, toast } from '../components/ui';
+import { FollowUpCard } from '../components/FollowUpCard';
+import { PriorityBadge, RedFlagBanner, SalesChance } from '../components/LeadBadges';
+import { RedFlagEditor, StandEditor } from '../components/StandSteps';
+import { ChipSelect, Sheet, Stars, errorText, toast } from '../components/ui';
+import { PRIORITIES } from '../constants/stand';
 import { INFO_TYPES, PHOTO_KINDS, REG_TOPICS, RISK_LEVELS, SCORE_LABELS, labelOf } from '../constants/options';
 import { db } from '../db/db';
 import { addPhoto, archiveProduct, deleteProductForever, removePhoto, restoreProduct, updateProduct } from '../db/repo';
@@ -256,11 +260,17 @@ export default function ProductDetail() {
       </div>
       {params.has('review') && <ReviewBar id={p.id} />}
       {archived && <div className="hint-box">This product is archived. It is hidden from lists until restored.</div>}
+      <RedFlagBanner p={p} />
 
       <div className="detail">
         <aside className="detail__aside stack">
           <Gallery p={p} />
           <div className="card stack">
+            <div className="row row--between">
+              <span className="field__label">Priority <PriorityBadge priority={p.priority} /></span>
+              <SalesChance p={p} />
+            </div>
+            <ChipSelect big options={PRIORITIES} value={p.priority} onChange={(priority) => patch({ priority })} />
             <div className="row row--between">
               <span className="field__label">Interest</span>
               <Stars value={p.interest} onChange={(interest) => patch({ interest })} />
@@ -283,6 +293,8 @@ export default function ProductDetail() {
           <div className="stack">
             <input className="input" style={{ fontSize: '1.3rem', fontWeight: 600 }} placeholder="Product name" value={p.name}
               onChange={(e) => patch({ name: e.target.value })} />
+            <input className="input" placeholder="Company" autoCapitalize="words" value={p.supplier.company}
+              onChange={(e) => patch({ supplier: { ...p.supplier, company: e.target.value } })} aria-label="Company" />
             <textarea className="textarea" placeholder="Description" value={p.description} onChange={(e) => patch({ description: e.target.value })} />
             <textarea className="textarea" placeholder="My note" value={p.notes} onChange={(e) => patch({ notes: e.target.value })} />
             {p.voiceTranscript && (
@@ -313,6 +325,18 @@ export default function ProductDetail() {
             </div>
           </details>
 
+          <details className="card" open={params.has('review') || undefined}>
+            <summary>Stand talk {p.stand.deDistributor === 'no' ? '· 🚀' : ''}</summary>
+            <StandEditor p={p} patch={patch} />
+          </details>
+          <details className="card">
+            <summary>Red flags {p.redFlags.length ? `· 🚩 ${p.redFlags.length}` : ''}</summary>
+            <RedFlagEditor value={p.redFlags} onChange={(redFlags) => patch({ redFlags })} />
+          </details>
+          <details className="card" open={Boolean(p.priority === 'A' || p.priority === 'B') || undefined}>
+            <summary>Follow-up {p.followUpSentAt ? '· ✓ sent' : ''}</summary>
+            <FollowUpCard key={`${p.supplier.company}|${p.supplier.contactPerson}|${p.hall}|${p.supplier.boothNumber}`} p={p} link={false} />
+          </details>
           <details className="card"><summary>Pricing & business</summary><PricingEditor p={p} onPatch={patch} /></details>
           <details className="card"><summary>Investors</summary><InvestorEditor p={p} onPatch={patch} /></details>
           <details className="card" open={params.has('review') || undefined}>

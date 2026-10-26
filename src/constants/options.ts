@@ -47,8 +47,11 @@ export const PURPOSES: Option<PurposeId>[] = [
 ];
 
 export const PROJECTS: Option<ProjectId>[] = [
+  { id: 'hala', label: 'HALA', hint: 'Import/Export: Hersteller ohne DE-Vertriebspartner' },
+  { id: 'lokka', label: 'LOKKA', hint: 'Loyalty/POS: NFC-Tags, Reader, Touch-Displays' },
+  { id: 'mts', label: 'MTS', hint: 'Kälte, Klima, Wasser, Gas, Elektro: Netzteile, Sensoren, Bauteile' },
+  { id: 'robo', label: 'ROBO / JUZ', hint: 'Edu-Roboter und STEM-Kits, Content' },
   { id: 'babel', label: 'Babel' },
-  { id: 'lokka', label: 'Lokka' },
   { id: 'import', label: 'Import Business' },
   { id: 'own_brand', label: 'Own Brand' },
   { id: 'startup', label: 'Startup' },
@@ -92,6 +95,7 @@ export const RISK_LEVELS: Option<RiskLevel>[] = [
 export const REG_TOPICS: Option<RegTopicId>[] = [
   { id: 'CE', label: 'CE', hint: 'Indicates that the manufacturer declares conformity with applicable EU requirements.' },
   { id: 'DOC', label: 'EU Declaration of Conformity', hint: 'Document in which the manufacturer declares that the product meets all applicable EU rules. Needed for CE marking.' },
+  { id: 'RED', label: 'RED', hint: 'EU Radio Equipment Directive: applies to anything with radio (NFC, WiFi, Bluetooth).' },
   { id: 'WEEE', label: 'WEEE', hint: 'EU rules concerning waste electrical and electronic equipment (registration and take-back, e.g. stiftung ear in Germany).' },
   { id: 'ROHS', label: 'RoHS', hint: 'EU restrictions on certain hazardous substances in electrical and electronic equipment.' },
   { id: 'BATTERY', label: 'Battery regulation', hint: 'EU Battery Regulation: labelling, registration and take-back duties for products with batteries.' },

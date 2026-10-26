@@ -29,7 +29,7 @@ export function BusinessTypeEditor({ p, onPatch }: { p: Product; onPatch: Patch 
 
 export function ProjectsEditor({ p, onPatch }: { p: Product; onPatch: Patch }) {
   return (
-    <Field label="Project">
+    <Field label="Tags">
       <ChipMulti options={PROJECTS} value={p.projects} onChange={(projects) => onPatch({ projects })} />
     </Field>
   );

@@ -8,7 +8,8 @@ import {
   BUSINESS_TYPES, INVESTMENT_TYPES, INVESTORS, PURPOSES, READINESS, REG_TOPICS, RISK_LEVELS, SCORE_LABELS, SEASONS, labelOf,
 } from '../constants/options';
 import { useFairs, useProduct } from '../hooks/useData';
-import { categoryIcon, categoryLabel, fairName, marketsLabel, money, productTitle, projectsLabel } from '../services/format';
+import { categoryIcon, categoryLabel, fairName, marketsLabel, productTitle, projectsLabel } from '../services/format';
+import { dealRows } from '../services/deal';
 import { elementToPdf, shareOrDownload } from '../services/pdf';
 import { SCORE_DIMENSIONS, type Fair, type Product } from '../types/models';
 
@@ -37,6 +38,12 @@ function ProductPage({ p, fairs }: { p: Product; fairs?: Fair[] }) {
       <div>
         <h2>{categoryLabel(p)}{type ? ` · ${type}` : ''}</h2>
         <h1>{productTitle(p)}</h1>
+        {(p.priority || p.stand.deDistributor === 'no') && (
+          <p className="ppage__badges">
+            {p.priority && <span className="ppage__prio">Priority {p.priority}</span>}
+            {p.stand.deDistributor === 'no' && <span className="ppage__sales">SALES CHANCE · no DE distributor</span>}
+          </p>
+        )}
         {p.description && <p className="ppage__desc">{clip(p.description, 230)}</p>}
       </div>
 
@@ -67,14 +74,9 @@ function ProductPage({ p, fairs }: { p: Product; fairs?: Fair[] }) {
           </dl>
         </div>
         <div className="pbox">
-          <h2>Prices</h2>
+          <h2>Deal terms</h2>
           <dl className="kv">
-            <dt>Supplier price</dt><dd>{money(p.pricing.supplierPrice, p.pricing.currency)}</dd>
-            <dt>MOQ</dt><dd>{p.pricing.moq ?? 'Unknown'}</dd>
-            <dt>Target price</dt><dd>{money(p.pricing.targetSellingPrice, p.pricing.currency)}</dd>
-            <dt>Margin</dt><dd>{p.pricing.estimatedMargin !== undefined ? `${p.pricing.estimatedMargin}%` : 'Unknown'}</dd>
-            <dt>Startup capital</dt><dd>{money(p.pricing.startupCapital, 'EUR')}</dd>
-            <dt>OEM</dt><dd>{p.oem === null ? 'Unknown' : p.oem ? 'Yes' : 'No'}</dd>
+            {dealRows(p).map(([k, v]) => (<><dt key={`k-${k}`}>{k}</dt><dd key={`v-${k}`}>{v}</dd></>))}
           </dl>
         </div>
       </div>

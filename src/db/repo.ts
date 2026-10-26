@@ -1,4 +1,5 @@
 import { pruneAnswers } from '../constants/categories';
+import { suggestFair } from '../constants/fairs';
 import { db, kvGet, kvSet } from './db';
 import { newId, nowIso } from '../services/ids';
 import { processImage } from '../services/images';
@@ -23,6 +24,7 @@ export function blankProduct(ownerId: string): Product {
     pricing: { currency: 'EUR', note: '' },
     regulatory: { risk: 'unknown', topics: [], note: '' },
     oem: null,
+    priority: null, stand: {}, redFlags: [], followUpSentAt: null,
     ai: {}, photos: [], history: [{ at: now, action: 'created' }],
   };
 }
@@ -124,7 +126,8 @@ export async function newCaptureProduct(opts: { sameBoothAs?: Product } = {}): P
   p.targetMarkets = defaults.targetMarkets;
   p.businessType = defaults.businessType;
   p.projects = defaults.projects;
-  p.fairId = session.fairId;
+  // No fair picked yet: use the one running today (or the next one), so leads are never "fair-less".
+  p.fairId = session.fairId ?? suggestFair(await db.fairs.toArray())?.id ?? null;
   p.hall = session.hall;
   const src = opts.sameBoothAs;
   if (src) {

@@ -8,17 +8,19 @@ import { Icon } from './Icon';
 interface ChipsBase<T extends string> {
   options: Option<T>[];
   small?: boolean;
+  /** Extra large tap targets (stand conversation). */
+  big?: boolean;
   /** Options to highlight as AI/voice suggestions. */
   suggested?: T[];
 }
 
-export function ChipSelect<T extends string>({ options, value, onChange, small, suggested, allowEmpty = true }:
+export function ChipSelect<T extends string>({ options, value, onChange, small, big, suggested, allowEmpty = true }:
   ChipsBase<T> & { value: T | null | undefined; onChange: (v: T | null) => void; allowEmpty?: boolean }) {
   return (
     <div className="chips" role="radiogroup">
       {options.map((o) => (
         <button key={o.id} type="button" role="radio" aria-checked={value === o.id} aria-pressed={value === o.id}
-          className={`chip${small ? ' chip--sm' : ''}${suggested?.includes(o.id) ? ' chip--suggest' : ''}`}
+          className={`chip${small ? ' chip--sm' : ''}${big ? ' chip--big' : ''}${suggested?.includes(o.id) ? ' chip--suggest' : ''}`}
           title={o.hint}
           onClick={() => onChange(value === o.id && allowEmpty ? null : o.id)}>
           {o.icon && <span aria-hidden>{o.icon}</span>}{o.label}
@@ -28,14 +30,14 @@ export function ChipSelect<T extends string>({ options, value, onChange, small, 
   );
 }
 
-export function ChipMulti<T extends string>({ options, value, onChange, small, suggested }:
+export function ChipMulti<T extends string>({ options, value, onChange, small, big, suggested }:
   ChipsBase<T> & { value: T[]; onChange: (v: T[]) => void }) {
   const toggle = (id: T) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
   return (
     <div className="chips">
       {options.map((o) => (
         <button key={o.id} type="button" aria-pressed={value.includes(o.id)}
-          className={`chip${small ? ' chip--sm' : ''}${suggested?.includes(o.id) ? ' chip--suggest' : ''}`}
+          className={`chip${small ? ' chip--sm' : ''}${big ? ' chip--big' : ''}${suggested?.includes(o.id) ? ' chip--suggest' : ''}`}
           title={o.hint} onClick={() => toggle(o.id)}>
           {o.icon && <span aria-hidden>{o.icon}</span>}{o.label}
         </button>

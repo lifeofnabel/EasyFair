@@ -9,13 +9,20 @@ export type SeasonId =
 export type PurposeId =
   | 'import_resell' | 'develop_own' | 'own_brand' | 'b2b_solution' | 'test_babel' | 'integrate_lokka'
   | 'market_observation' | 'idea_only';
-export type ProjectId = 'babel' | 'lokka' | 'import' | 'own_brand' | 'startup' | 'other';
+export type ProjectId = 'hala' | 'lokka' | 'mts' | 'robo' | 'babel' | 'import' | 'own_brand' | 'startup' | 'other';
+export type Priority = 'A' | 'B' | 'C';
+export type SupplierType = 'factory' | 'trading' | 'both';
+export type CertId = 'CE' | 'ROHS' | 'RED' | 'NONE';
+export type PaymentId = 'TT_30_70' | 'TT_50_50' | 'TT_100' | 'LC' | 'OTHER';
+export type Incoterm = 'FOB' | 'EXW' | 'DDP' | 'CIF' | 'OTHER';
+export type DeDistributor = 'yes' | 'no' | 'unknown';
+export type RedFlagId = 'private_account' | 'no_cert_proof' | 'time_pressure' | 'no_company';
 export type InvestorId = 'AA' | 'DH' | 'NA' | 'JS' | 'NS' | 'JN' | 'UNKNOWN';
 export type InvestmentType = 'equity' | 'loan' | 'both_unknown';
 export type Readiness = 'certain' | 'likely' | 'maybe' | 'unknown';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'unknown';
 export type RegTopicId =
-  | 'CE' | 'DOC' | 'WEEE' | 'ROHS' | 'BATTERY' | 'FOOD' | 'COSMETICS' | 'TOY' | 'MEDICAL' | 'REACH' | 'PACKAGING';
+  | 'CE' | 'DOC' | 'RED' | 'WEEE' | 'ROHS' | 'BATTERY' | 'FOOD' | 'COSMETICS' | 'TOY' | 'MEDICAL' | 'REACH' | 'PACKAGING';
 export type Currency = 'EUR' | 'USD' | 'CNY';
 export type CategoryId =
   | 'food' | 'packaging' | 'automation' | 'industry' | 'trading' | 'retail' | 'energy' | 'school_office'
@@ -113,11 +120,24 @@ export interface AiScore {
 }
 
 export type HistoryAction =
-  | 'created' | 'edited' | 'ai_structured' | 'ai_analysis' | 'ai_score' | 'archived' | 'restored' | 'photo_added';
+  | 'created' | 'followup_sent' | 'edited' | 'ai_structured' | 'ai_analysis' | 'ai_score' | 'archived' | 'restored' | 'photo_added';
 
 export interface HistoryEntry {
   at: ISODate;
   action: HistoryAction;
+}
+
+/** Answers of the 8-step stand conversation. Every field is optional: any step can be skipped. */
+export interface StandData {
+  supplierType?: SupplierType;
+  certs?: CertId[];
+  moqUnit?: string;
+  tiers?: { q100?: number; q500?: number; q1000?: number };
+  sample?: { available?: boolean; cost?: number; refunded?: boolean };
+  leadTimeDays?: number;
+  payment?: PaymentId;
+  incoterm?: Incoterm;
+  deDistributor?: DeDistributor;
 }
 
 export interface Product {
@@ -154,6 +174,12 @@ export interface Product {
   pricing: Pricing;
   regulatory: Regulatory;
   oem: boolean | null;
+
+  /** A = must, B = if time, C = optional. Null until triaged. */
+  priority: Priority | null;
+  stand: StandData;
+  redFlags: RedFlagId[];
+  followUpSentAt: ISODate | null;
 
   ai: { analysis?: AiAnalysis; score?: AiScore; structuredAt?: ISODate };
   photos: Photo[];

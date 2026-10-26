@@ -1,127 +1,45 @@
-import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CategoryPicker, CategoryQuestions } from '../components/CategoryQuestions';
 import {
   BusinessTypeEditor, InvestorEditor, MarketEditor, PricingEditor, ProjectsEditor, SeasonPurposeEditor,
 } from '../components/Editors';
 import { Icon } from '../components/Icon';
-import { PhotoImg } from '../components/ProductCard';
+import { PhotoStrip, ShotButton } from '../components/PhotoShots';
+import { QuickAnswers, RedFlagEditor } from '../components/StandSteps';
 import { SuggestionReview, applySuggestion, suggestionLines, type SuggestionKey } from '../components/SuggestionReview';
 import { SupplierEditor } from '../components/SupplierEditor';
 import { TranslateButton } from '../components/Translate';
-import { Field, Stars, errorText, toast } from '../components/ui';
-import { INFO_TYPES } from '../constants/options';
+import { ChipSelect, Field, Stars, errorText, toast } from '../components/ui';
+import { PRIORITIES } from '../constants/stand';
 import { db } from '../db/db';
-import { attachStagedPhotos, discardPhotoBlobs, newCaptureProduct, saveNewProduct, stagePhoto } from '../db/repo';
+import { useCaptureDraft } from '../hooks/useCaptureDraft';
 import { structureCapture, type StructureResult } from '../services/ai';
-import { decodeQr } from '../services/qr';
-import { tap } from '../services/feedback';
-import type { InfoType, Photo, PhotoKind, Product } from '../types/models';
+import type { Product } from '../types/models';
 
 const STEPS = ['Photos', 'Note', 'Details'] as const;
 const AI_WAIT_MS = 9000;
-
-function ShotButton({ kind, label, icon, main, small, onFile }: {
-  kind: PhotoKind; label: string; icon: string; main?: boolean; small?: boolean; onFile: (f: File, kind: PhotoKind) => void;
-}) {
-  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(e.target.files ?? [])];
-    files.forEach((f) => onFile(f, kind));
-    e.target.value = '';
-  };
-  return (
-    <label className={`shot${main ? ' shot--main' : ''}${small ? ' shot--small' : ''}`}>
-      <span className="shot__icon" aria-hidden>{icon}</span>
-      <span>{label}</span>
-      <input type="file" accept="image/*" capture="environment" onChange={onChange} aria-label={label} />
-    </label>
-  );
-}
 
 export default function Capture() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
+  const initialFiles = useRef<File[]>((location.state as { files?: File[] } | null)?.files ?? []);
+  const { draft, draftRef, patch, update, setDraft, busy, restored, onFile, setPhoto, removePhoto, save, restart } = useCaptureDraft('capture', {
+    sameBoothId: params.get('booth'), files: initialFiles.current, fresh: params.get('new') === '1',
+  });
   const [step, setStep] = useState(0);
-  const [draft, setDraft] = useState<Product | null>(null);
-  const [busy, setBusy] = useState(0);
   const [structure, setStructure] = useState<StructureResult | null>(null);
   const [structuring, setStructuring] = useState(false);
   const [rejected, setRejected] = useState<SuggestionKey[]>([]);
   const [accepted, setAccepted] = useState(false);
   const [saving, setSaving] = useState(false);
-  const saved = useRef(false);
-  const staged = useRef<string[]>([]);
-  const draftRef = useRef<Product | null>(null);
-  draftRef.current = draft;
   // Refs mirror the structuring state so "Save" right after the AI finished never sees stale values.
   const structureRef = useRef<StructureResult | null>(null);
   const rejectedRef = useRef<SuggestionKey[]>([]);
   const acceptedRef = useRef(false);
   const lastStructured = useRef('');
   const descriptionEdited = useRef(false);
-  const initialFiles = useRef<File[]>((location.state as { files?: File[] } | null)?.files ?? []);
-
-  useEffect(() => {
-    let alive = true;
-    saved.current = false;
-    (async () => {
-      const boothId = params.get('booth');
-      const src = boothId ? await db.products.get(boothId) : undefined;
-      const p = await newCaptureProduct({ sameBoothAs: src });
-      if (!alive) return;
-      setDraft(p);
-      const files = initialFiles.current;
-      initialFiles.current = [];
-      files.forEach((f) => void onFile(f, 'product'));
-    })();
-    // Leaving without "Save" never loses a capture: anything with a photo or a note is kept as a product.
-    return () => {
-      alive = false;
-      if (saved.current) return;
-      const d = draftRef.current;
-      const hasContent = d && (d.photos.length || d.voiceTranscript.trim() || d.name.trim() || d.notes.trim());
-      if (d && hasContent) {
-        saved.current = true;
-        void attachStagedPhotos(d.id, d.photos.map((ph) => ph.id)).then(() => saveNewProduct(d))
-          .then(() => toast('Unsaved capture kept. Find it under Products.'));
-      } else if (staged.current.length) {
-        void discardPhotoBlobs(staged.current);
-      }
-      staged.current = [];
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
-
-  const patch = (changes: Partial<Product>) => setDraft((d) => (d ? { ...d, ...changes } : d));
-
-  async function onFile(file: File, kind: PhotoKind) {
-    setBusy((b) => b + 1);
-    try {
-      const photo = await stagePhoto(file, kind, kind === 'info' ? 'business_card' : undefined);
-      staged.current.push(photo.id);
-      setDraft((d) => (d ? { ...d, photos: [...d.photos, photo] } : d));
-      tap();
-      if (kind === 'info') {
-        const blob = (await db.photoBlobs.get(photo.id))?.low;
-        const qr = blob ? await decodeQr(blob).catch(() => null) : null;
-        if (qr) setPhoto(photo.id, { infoType: 'qr', qrValue: qr });
-      }
-    } catch (err) {
-      toast(errorText(err), { error: true });
-    } finally {
-      setBusy((b) => b - 1);
-    }
-  }
-
-  const setPhoto = (id: string, changes: Partial<Photo>) =>
-    setDraft((d) => (d ? { ...d, photos: d.photos.map((p) => (p.id === id ? { ...p, ...changes } : p)) } : d));
-
-  const removePhoto = (id: string) => {
-    setDraft((d) => (d ? { ...d, photos: d.photos.filter((p) => p.id !== id) } : d));
-    staged.current = staged.current.filter((x) => x !== id);
-    void discardPhotoBlobs([id]);
-  };
 
   /** Title + description (+ field suggestions) from the note and the product photo. Runs again only when they changed. */
   async function runStructure(force = false): Promise<void> {
@@ -142,15 +60,13 @@ export default function Capture() {
       setRejected([]);
       setAccepted(false);
       const s = result.suggestion;
-      const cur = draftRef.current;
-      if (cur) {
+      update((cur) => {
         const next = { ...cur };
         if (s.name && !cur.name.trim()) next.name = s.name;
         if (s.description && (!cur.description.trim() || !descriptionEdited.current)) next.description = s.description;
         if (result.source === 'ai') next.ai = { ...cur.ai, structuredAt: new Date().toISOString() };
-        draftRef.current = next;
-        setDraft(next);
-      }
+        return next;
+      });
     } finally {
       setStructuring(false);
     }
@@ -167,7 +83,6 @@ export default function Capture() {
     const next = applySuggestion(d, st.suggestion, keys);
     next.name = d.name;
     next.description = d.description;
-    draftRef.current = next;
     acceptedRef.current = true;
     setDraft(next);
     setAccepted(true);
@@ -180,19 +95,16 @@ export default function Capture() {
     setRejected(r);
   }
 
-  async function save() {
+  async function onSave() {
     if (!draftRef.current || saving) return;
     if (busy > 0) { toast('Photo is still being processed…'); return; }
     setSaving(true);
     try {
       if (step <= 1) await settleStructure();
-      const finalProduct = acceptSuggestion() ?? draftRef.current!;
-      await attachStagedPhotos(finalProduct.id, finalProduct.photos.map((ph) => ph.id));
-      await saveNewProduct(finalProduct);
-      saved.current = true;
-      tap(true);
+      acceptSuggestion();
+      const p = await save();
       toast('Saved ✓');
-      navigate('/', { replace: true, state: { savedId: finalProduct.id } });
+      navigate('/', { replace: true, state: { savedId: p.id } });
     } catch (err) {
       toast(errorText(err), { error: true });
       setSaving(false);
@@ -223,6 +135,12 @@ export default function Capture() {
         </div>
       </div>
       <div className="steps" aria-hidden>{STEPS.map((s, i) => <span key={s} className={i <= step ? 'on' : ''} />)}</div>
+      {restored && (
+        <div className="hint-box row row--between row--wrap">
+          <span>Draft restored.</span>
+          <button type="button" className="btn btn--small" onClick={() => { void restart(); setStep(0); }}>Start new</button>
+        </div>
+      )}
       {boothSource && draft.supplier.company && <p className="small muted">Same booth: {draft.supplier.company}{draft.supplier.boothNumber ? ` · ${draft.supplier.boothNumber}` : ''}</p>}
 
       {step === 0 && (
@@ -234,30 +152,7 @@ export default function Capture() {
           </div>
           <ShotButton kind="other" label="Other photo" icon="🖼️" small onFile={onFile} />
           {busy > 0 && <p className="small muted">Processing photo…</p>}
-          {draft.photos.length > 0 && (
-            <div className="stack">
-              <div className="photo-strip">
-                {draft.photos.map((ph) => (
-                  <div key={ph.id} className="photo-tile">
-                    <PhotoImg photo={ph} />
-                    <button type="button" className="photo-tile__x" aria-label="Remove photo" onClick={() => removePhoto(ph.id)}>✕</button>
-                    <div className="photo-tile__label">{ph.kind === 'info' ? INFO_TYPES.find((t) => t.id === ph.infoType)?.label : ph.kind}</div>
-                  </div>
-                ))}
-              </div>
-              {draft.photos.filter((p) => p.kind === 'info').map((ph) => (
-                <div key={ph.id} className="row row--wrap">
-                  <div className="thumb"><PhotoImg photo={ph} /></div>
-                  <div className="chips grow">
-                    {INFO_TYPES.map((t) => (
-                      <button key={t.id} type="button" className="chip chip--sm" aria-pressed={ph.infoType === t.id}
-                        onClick={() => setPhoto(ph.id, { infoType: t.id as InfoType })}>{t.label}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <PhotoStrip photos={draft.photos} onRemove={removePhoto} onSetPhoto={setPhoto} />
           <p className="small muted">Photos are optional. Everything is stored on this phone immediately.</p>
         </>
       )}
@@ -280,6 +175,9 @@ export default function Capture() {
             <textarea className="textarea" placeholder={structuring ? 'Writing description…' : 'Short description (written for you)'} value={draft.description}
               onChange={(e) => { descriptionEdited.current = true; patch({ description: e.target.value }); }} />
           </Field>
+          <Field label="Quick answers" note="One tap fills the same fields as the stand talk.">
+            <QuickAnswers p={draft} patch={patch} />
+          </Field>
           {structure && (
             <SuggestionReview suggestion={structure.suggestion} source={structure.source} rejected={rejected} accepted={accepted}
               onToggle={toggleSuggestion}
@@ -290,6 +188,14 @@ export default function Capture() {
 
       {step === 2 && (
         <>
+          <Field label="Priority">
+            <ChipSelect big options={PRIORITIES} value={draft.priority} onChange={(priority) => patch({ priority })} />
+          </Field>
+          <ProjectsEditor p={draft} onPatch={patch} />
+          <div className="field">
+            <span className="field__label">Interest</span>
+            <Stars value={draft.interest} onChange={(interest) => patch({ interest })} />
+          </div>
           <MarketEditor p={draft} onPatch={patch} />
           <BusinessTypeEditor p={draft} onPatch={patch} />
           <div className="field">
@@ -298,11 +204,6 @@ export default function Capture() {
           </div>
           <CategoryQuestions mode="quick" categoryId={draft.categoryId} answers={draft.categoryAnswers}
             onChange={(categoryAnswers) => patch({ categoryAnswers })} />
-          <ProjectsEditor p={draft} onPatch={patch} />
-          <div className="field">
-            <span className="field__label">Interest</span>
-            <Stars value={draft.interest} onChange={(interest) => patch({ interest })} />
-          </div>
           <details className="card">
             <summary>Supplier {draft.supplier.company ? `· ${draft.supplier.company}` : ''}</summary>
             <SupplierEditor supplier={draft.supplier} onChange={(supplier) => patch({ supplier })} photos={draft.photos}
@@ -316,6 +217,7 @@ export default function Capture() {
               <SeasonPurposeEditor p={draft} onPatch={patch} />
               <PricingEditor p={draft} onPatch={patch} />
               <InvestorEditor p={draft} onPatch={patch} />
+              <Field label="Red flags"><RedFlagEditor value={draft.redFlags} onChange={(redFlags) => patch({ redFlags })} /></Field>
               <textarea className="textarea" placeholder="My note" value={draft.notes} onChange={(e) => patch({ notes: e.target.value })} />
             </div>
           </details>
@@ -323,10 +225,10 @@ export default function Capture() {
       )}
 
       <div className="sticky-actions">
-        {step < STEPS.length - 1 && <button type="button" className="btn btn--big" disabled={saving} onClick={() => void save()}>Save</button>}
+        {step < STEPS.length - 1 && <button type="button" className="btn btn--big" disabled={saving} onClick={() => void onSave()}>Save</button>}
         {step < STEPS.length - 1
           ? <button type="button" className="btn btn--big btn--primary" disabled={saving || structuring} onClick={() => void next()}>{structuring ? 'Writing…' : 'Next'}{!structuring && <Icon name="next" />}</button>
-          : <button type="button" className="btn btn--big btn--pink" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save product'}</button>}
+          : <button type="button" className="btn btn--big btn--pink" disabled={saving} onClick={() => void onSave()}>{saving ? 'Saving…' : 'Save product'}</button>}
       </div>
     </div>
   );
