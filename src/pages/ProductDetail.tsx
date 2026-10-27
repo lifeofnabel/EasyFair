@@ -325,7 +325,7 @@ export default function ProductDetail() {
             </div>
           </details>
 
-          <details className="card" open={params.has('review') || undefined}>
+          <details className="card">
             <summary>Stand talk {p.stand.deDistributor === 'no' ? '· 🚀' : ''}</summary>
             <StandEditor p={p} patch={patch} />
           </details>
@@ -333,7 +333,7 @@ export default function ProductDetail() {
             <summary>Red flags {p.redFlags.length ? `· 🚩 ${p.redFlags.length}` : ''}</summary>
             <RedFlagEditor value={p.redFlags} onChange={(redFlags) => patch({ redFlags })} />
           </details>
-          <details className="card" open={Boolean(p.priority === 'A' || p.priority === 'B') || undefined}>
+          <details className="card">
             <summary>Follow-up {p.followUpSentAt ? '· ✓ sent' : ''}</summary>
             <FollowUpCard key={`${p.supplier.company}|${p.supplier.contactPerson}|${p.hall}|${p.supplier.boothNumber}`} p={p} link={false} />
           </details>

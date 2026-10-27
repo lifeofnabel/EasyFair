@@ -1,4 +1,3 @@
-import { TranslateButton } from '../components/Translate';
 import { PhraseList } from '../components/PhraseCards';
 
 export default function Phrases() {
@@ -6,7 +5,7 @@ export default function Phrases() {
     <div className="page page--narrow">
       <div className="topbar">
         <h1><span lang="zh-CN" data-no-translate>中文</span> Phrases</h1>
-        <TranslateButton />
+
       </div>
       <p className="small muted">Tap a card: full-screen Chinese to show, Pinyin to read aloud. ★ keeps your favourites on top. Works offline.</p>
       <PhraseList />

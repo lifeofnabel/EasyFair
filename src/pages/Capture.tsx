@@ -175,7 +175,7 @@ export default function Capture() {
             <textarea className="textarea" placeholder={structuring ? 'Writing description…' : 'Short description (written for you)'} value={draft.description}
               onChange={(e) => { descriptionEdited.current = true; patch({ description: e.target.value }); }} />
           </Field>
-          <Field label="Quick answers" note="One tap fills the same fields as the stand talk.">
+          <Field label="Quick answers" note="Optional: one tap for facts you hear often.">
             <QuickAnswers p={draft} patch={patch} />
           </Field>
           {structure && (
@@ -188,14 +188,6 @@ export default function Capture() {
 
       {step === 2 && (
         <>
-          <Field label="Priority">
-            <ChipSelect big options={PRIORITIES} value={draft.priority} onChange={(priority) => patch({ priority })} />
-          </Field>
-          <ProjectsEditor p={draft} onPatch={patch} />
-          <div className="field">
-            <span className="field__label">Interest</span>
-            <Stars value={draft.interest} onChange={(interest) => patch({ interest })} />
-          </div>
           <MarketEditor p={draft} onPatch={patch} />
           <BusinessTypeEditor p={draft} onPatch={patch} />
           <div className="field">
@@ -204,6 +196,14 @@ export default function Capture() {
           </div>
           <CategoryQuestions mode="quick" categoryId={draft.categoryId} answers={draft.categoryAnswers}
             onChange={(categoryAnswers) => patch({ categoryAnswers })} />
+          <ProjectsEditor p={draft} onPatch={patch} />
+          <div className="field">
+            <span className="field__label">Interest</span>
+            <Stars value={draft.interest} onChange={(interest) => patch({ interest })} />
+          </div>
+          <Field label="Priority (optional)">
+            <ChipSelect options={PRIORITIES} value={draft.priority} onChange={(priority) => patch({ priority })} />
+          </Field>
           <details className="card">
             <summary>Supplier {draft.supplier.company ? `· ${draft.supplier.company}` : ''}</summary>
             <SupplierEditor supplier={draft.supplier} onChange={(supplier) => patch({ supplier })} photos={draft.photos}

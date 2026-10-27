@@ -76,7 +76,7 @@ function ProductPage({ p, fairs }: { p: Product; fairs?: Fair[] }) {
         <div className="pbox">
           <h2>Deal terms</h2>
           <dl className="kv">
-            {dealRows(p).map(([k, v]) => (<><dt key={`k-${k}`}>{k}</dt><dd key={`v-${k}`}>{v}</dd></>))}
+            {dealRows(p).slice(0, 9).map(([k, v]) => (<><dt key={`k-${k}`}>{k}</dt><dd key={`v-${k}`}>{v}</dd></>))}
           </dl>
         </div>
       </div>

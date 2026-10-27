@@ -15,7 +15,7 @@ import { useCaptureDraft } from '../hooks/useCaptureDraft';
 import type { Product, ProjectId } from '../types/models';
 
 const WRAP = STAND_STEPS.length; // index of the wrap-up screen
-const CORE_TAGS = PROJECTS.slice(0, 4);
+const CORE_TAGS = PROJECTS.filter((p) => ['hala', 'lokka', 'mts', 'robo'].includes(p.id));
 
 function answered(n: number, p: Product): boolean {
   const s = p.stand;

@@ -61,11 +61,11 @@ export default function Products() {
   return (
     <div className="page">
       <div className="topbar">
-        <h1>Leads</h1>
+        <h1>Products</h1>
         <ExportButton count={list.length} busy={exporting} onExport={exportAs} />
       </div>
       <div className="row">
-        <input className="input grow" type="search" placeholder="Search company, product, contact, hall" value={filter.q}
+        <input className="input grow" type="search" placeholder="Search product, company, contact, notes" value={filter.q}
           onChange={(e) => setFilter({ ...filter, q: e.target.value })} aria-label="Search" />
         <button type="button" className="btn" onClick={() => setOpen(true)} aria-label="Filters">
           <Icon name="filter" />{n ? `Filters · ${n}` : 'Filters'}
@@ -76,12 +76,12 @@ export default function Products() {
           <button key={q.id} type="button" className="chip" aria-pressed={q.on(filter)} onClick={() => setFilter(q.toggle(filter))}>{q.label}</button>
         ))}
       </div>
-      {products && <p className="small muted">{list.length} lead{list.length === 1 ? '' : 's'}{filter.archived !== 'hide' ? ' (incl. archived)' : ''}</p>}
+      {products && <p className="small muted">{list.length} product{list.length === 1 ? '' : 's'}{filter.archived !== 'hide' ? ' (incl. archived)' : ''}</p>}
       {products && list.length === 0 && (
         <div className="empty">
           <span style={{ fontSize: '2rem' }}>🔎</span>
-          {products.length ? 'No lead matches these filters.' : 'No leads yet.'}
-          <Link className="btn btn--pink" to="/stand"><Icon name="plus" />Stand talk</Link>
+          {products.length ? 'No product matches these filters.' : 'No products yet.'}
+          <Link className="btn btn--pink" to="/capture"><Icon name="plus" />Add product</Link>
         </div>
       )}
       <div className="product-grid">
@@ -103,7 +103,7 @@ function ExportButton({ count, busy, onExport }: { count: number; busy: boolean;
     <>
       <button type="button" className="btn btn--small" disabled={!count} onClick={() => setOpen(true)}>Export</button>
       {open && (
-        <Sheet title={`Export ${count} lead${count === 1 ? '' : 's'}`} onClose={() => setOpen(false)}>
+        <Sheet title={`Export ${count} product${count === 1 ? '' : 's'}`} onClose={() => setOpen(false)}>
           <div className="stack">
             <p className="small muted">Exports exactly what the list shows right now (search and filters apply). CSV opens in Excel and Numbers.</p>
             <button type="button" className="btn btn--pink btn--big" disabled={busy} onClick={() => { onExport('csv'); setOpen(false); }}>CSV (Excel)</button>

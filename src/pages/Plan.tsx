@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PriorityBadge, SalesChance, TagChips } from '../components/LeadBadges';
-import { TranslateButton } from '../components/Translate';
 import { Icon } from '../components/Icon';
 import {
   AFTER_FAIR, CHECKLIST, EXHIBITORS, EXHIBITOR_NOTE, FAIR_DAYS, GAME_PLAN_MOTTO, HALLS, HALL_LEVEL_LABEL, SKIP_LIST, TIMELINE,
@@ -211,7 +210,7 @@ export default function Plan() {
   const tabs: [Tab, string][] = [['timeline', 'Timeline'], ['halls', 'Halls'], ['exhibitors', 'Exhibitors'], ['checklist', 'Checklist']];
   return (
     <div className="page page--narrow">
-      <div className="topbar"><h1>Plan</h1><TranslateButton /></div>
+      <div className="topbar"><h1>Plan</h1></div>
       <div className="chips tabs" role="tablist">
         {tabs.map(([id, label]) => (
           <button key={id} type="button" role="tab" className="chip" aria-pressed={tab === id} onClick={() => setParams(id === 'timeline' ? {} : { tab: id }, { replace: true })}>{label}</button>

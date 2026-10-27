@@ -102,6 +102,19 @@ What the AI does:
 - **No hallucinations:** the prompts require `null` for unknown values. AI output is always labelled and applied only after you accept it.
 - The key is used from the browser (`dangerouslyAllowBrowser` for Claude, plain `fetch` for DeepSeek). That is acceptable for a single-owner tool whose key sits behind owner-only rules. Before sharing the app with other users, move AI calls to a Firebase Function.
 
+## Fair guide (optional help)
+
+The normal flow is unchanged: **Add product → Products → Review**. The book icon in the header opens the **Fair guide** with optional helpers from the NEPCON game plan (all offline):
+
+- **Plan:** timeline for day 1–3 (tick off, edit times), halls, exhibitor list with a "Visit" button, checklist, second round with your A-leads.
+- **Phrases (中文):** full-screen Chinese cards with Pinyin, numbers, favourites, playback.
+- **Pitch:** opener and the four pitches with a teleprompter.
+- **Deal helper:** conversation order, money-saving sentences, rules, red flags, glossary, EU duties.
+- **Stand talk:** optional 8-question checklist per booth (MOQ, price tiers, samples, lead time, terms, German distributor) with timer.
+- **Follow-up:** ready-to-send WeChat message per lead.
+
+Products also got an optional **priority A/B/C**, **quick answers** in the note step, **quick filters** (A/B/C, today, follow-up, sales chance, red flag) and **CSV/JSON export** of the filtered list.
+
 ## Data
 
 - **Delete forever** (trash icon on a product): removes it on the phone and in Firebase (also on your other devices via background sync). Photos already in Cloudinary stay there. **Archive** only hides a product.

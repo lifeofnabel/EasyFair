@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FollowUpCard } from '../components/FollowUpCard';
-import { TranslateButton } from '../components/Translate';
 import { ChipSelect } from '../components/ui';
 import { useProducts } from '../hooks/useData';
 import { dayStats, isLead, isOpenFollowUp } from '../services/followup';
@@ -23,10 +22,10 @@ export default function FollowUp() {
 
   return (
     <div className="page page--narrow">
-      <div className="topbar"><h1>Follow-up</h1><TranslateButton /></div>
+      <div className="topbar"><h1>Follow-up</h1></div>
       <div className="card summary-card">
         <div className="summary-card__line"><strong>Today</strong>: {stats.leads} lead{stats.leads === 1 ? '' : 's'} · {stats.aLeads} A-lead{stats.aLeads === 1 ? '' : 's'} · <strong>{stats.open}</strong> open</div>
-        {stats.unrated > 0 && <Link to="/products?priority=" className="small muted">{stats.unrated} lead{stats.unrated === 1 ? '' : 's'} from today have no priority yet.</Link>}
+        {stats.unrated > 0 && <Link to="/products?priority=none" className="small muted">{stats.unrated} lead{stats.unrated === 1 ? '' : 's'} from today have no priority yet.</Link>}
       </div>
       <p className="small muted">Noch am selben Abend per WeChat. Offen = Priorität A oder B ohne gesendete Nachricht.</p>
       <ChipSelect allowEmpty={false} value={mode} onChange={(m) => setMode((m ?? 'open') as Mode)}

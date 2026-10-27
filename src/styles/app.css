@@ -461,7 +461,7 @@ html[dir="rtl"] .nav__add { transform: none; }
 .nav__add { border: 0; cursor: pointer; }
 .nav__zh { font-size: 1.35rem; line-height: 22px; height: 22px; font-weight: 600; }
 .stat-grid { grid-template-columns: repeat(2, 1fr); }
-@media (min-width: 720px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 720px) { .stat-grid { grid-template-columns: repeat(5, 1fr); } }
 
 /* stand talk */
 .stand-banner { text-align: center; font-size: 0.82rem; color: var(--muted); font-weight: 500; margin-top: -6px; }
@@ -584,3 +584,6 @@ html[dir="rtl"] .nav__add { transform: none; }
 .ppage__sales { background: #1E7A5F; }
 
 html[dir="rtl"] .quick-bar, html[dir="rtl"] .quick-links, html[dir="rtl"] .number-strip { margin-inline: calc(var(--gutter) * -1); }
+
+.sync { white-space: nowrap; }
+.topbar .row { flex-wrap: nowrap; gap: 6px; }

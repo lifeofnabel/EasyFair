@@ -47,14 +47,14 @@ export const PURPOSES: Option<PurposeId>[] = [
 ];
 
 export const PROJECTS: Option<ProjectId>[] = [
-  { id: 'hala', label: 'HALA', hint: 'Import/Export: Hersteller ohne DE-Vertriebspartner' },
-  { id: 'lokka', label: 'LOKKA', hint: 'Loyalty/POS: NFC-Tags, Reader, Touch-Displays' },
-  { id: 'mts', label: 'MTS', hint: 'Kälte, Klima, Wasser, Gas, Elektro: Netzteile, Sensoren, Bauteile' },
-  { id: 'robo', label: 'ROBO / JUZ', hint: 'Edu-Roboter und STEM-Kits, Content' },
   { id: 'babel', label: 'Babel' },
+  { id: 'lokka', label: 'Lokka', hint: 'Loyalty/POS: NFC-Tags, Reader, Touch-Displays' },
   { id: 'import', label: 'Import Business' },
   { id: 'own_brand', label: 'Own Brand' },
   { id: 'startup', label: 'Startup' },
+  { id: 'hala', label: 'HALA', hint: 'Import/Export: Hersteller ohne DE-Vertriebspartner' },
+  { id: 'mts', label: 'MTS', hint: 'Kälte, Klima, Wasser, Gas, Elektro: Netzteile, Sensoren, Bauteile' },
+  { id: 'robo', label: 'ROBO / JUZ', hint: 'Edu-Roboter und STEM-Kits, Content' },
   { id: 'other', label: 'Other' },
 ];
 

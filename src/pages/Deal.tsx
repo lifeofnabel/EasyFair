@@ -1,5 +1,4 @@
 import { useBigText, usePhraseShow } from '../components/PhraseCards';
-import { TranslateButton } from '../components/Translate';
 import { DEAL_RULES, EU_DUTIES, GLOSSARY, MONEY_SAVERS, RED_FLAG_CHECK } from '../constants/guide';
 import { RED_FLAGS, STAND_STEPS } from '../constants/stand';
 
@@ -8,7 +7,7 @@ export default function Deal() {
   const big = useBigText();
   return (
     <div className="page page--narrow">
-      <div className="topbar"><h1>Deal helper</h1><TranslateButton /></div>
+      <div className="topbar"><h1>Deal helper</h1></div>
       <p className="deal-motto">Nichts unterschreiben, nichts bezahlen am Stand.</p>
 
       <section className="card stack">
