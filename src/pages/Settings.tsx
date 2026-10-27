@@ -164,7 +164,7 @@ export default function Settings() {
           <button type="button" className="btn" onClick={() => void exportBackup()}>Download backup (JSON)</button>
         </div>
       </div>
-      <p className="small muted" style={{ textAlign: 'center' }}>{APP.fullName} · v0.2</p>
+      <p className="small muted" style={{ textAlign: 'center' }}>{APP.fullName} · v0.3</p>
     </div>
   );
 }

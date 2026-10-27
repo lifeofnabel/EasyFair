@@ -1,7 +1,7 @@
 {
   "name": "easyfair",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "EasyFair: capture products at trade fairs, review and decide at home.",
   "scripts": {
